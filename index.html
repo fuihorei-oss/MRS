@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>付け回し管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #08080e;
+  --panel:     #0f0f18;
+  --card:      #13131c;
+  --card-b:    #252535;
+  --gold:      #c9a84c;
+  --gold-dim:  #7a6230;
+  --purple:    #a78bfa;
+  --text:      #ddd5c8;
+  --muted:     #55526a;
+  --warn-bg:   #2a1800;
+  --warn:      #f59e0b;
+  --dead-bg:   #200808;
+  --dead:      #ef4444;
+  --dupe:      #f43f5e;
+  --ext-bg:    #071a10;
+  --ext:       #22c55e;
+  --active-bg: #0f0f1e;
+  --mono: 'Share Tech Mono', monospace;
+  --sans: 'Noto Sans JP', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text);touch-action:manipulation;}
+
+/* ── HEADER ── */
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 12px;background:var(--panel);
+  border-bottom:1px solid var(--card-b);flex-shrink:0;
+  height:36px;
+}
+#logo{font-size:.7rem;font-weight:700;letter-spacing:.18em;color:var(--gold);}
+#logo span{opacity:.5;margin:0 6px;}
+#clock{font-family:var(--mono);font-size:.75rem;color:var(--muted);}
+#dupe-alert{
+  font-size:.6rem;letter-spacing:.1em;color:var(--dupe);
+  display:none;animation:blink 1.2s step-end infinite;
+}
+#dupe-alert.show{display:block;}
+
+/* ── BODY ── */
+#body{display:flex;flex:1;overflow:hidden;}
+
+/* ── CAST PANEL ── */
+#cast-panel{
+  width:72px;flex-shrink:0;background:var(--panel);
+  border-right:1px solid var(--card-b);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+#cast-title{
+  text-align:center;font-size:.52rem;letter-spacing:.2em;
+  color:var(--gold);padding:5px 0 4px;
+  border-bottom:1px solid var(--card-b);flex-shrink:0;
+}
+#cast-list{
+  flex:1;overflow-y:auto;padding:3px;
+  display:flex;flex-direction:column;gap:2px;
+}
+#cast-list::-webkit-scrollbar{width:3px;}
+#cast-list::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+.cast-chip{
+  background:#1a1a28;border:1px solid var(--card-b);
+  border-radius:4px;padding:5px 3px;
+  font-size:.65rem;color:var(--text);
+  cursor:grab;text-align:center;
+  transition:background .15s, border-color .15s, color .15s;
+  line-height:1.2;
+}
+.cast-chip:active{cursor:grabbing;opacity:.8;}
+.cast-chip.dupe{color:var(--dupe);border-color:var(--dupe);background:#280010;}
+.cast-chip.drag-over-self{opacity:.4;}
+
+/* ── GRID ── */
+#main{flex:1;padding:5px;overflow:hidden;}
+#grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  grid-template-rows:repeat(4,1fr);
+  gap:4px;
+  width:100%;height:100%;
+}
+
+/* ── CARD ── */
+.card{
+  background:var(--card);border:1px solid var(--card-b);
+  border-radius:6px;padding:5px 5px 4px;
+  display:flex;flex-direction:column;gap:2px;
+  position:relative;overflow:hidden;
+  transition:background .35s,border-color .35s;
+}
+.card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.02) 0%,transparent 60%);
+  pointer-events:none;
+}
+.card.warn{background:var(--warn-bg);border-color:var(--warn);}
+.card.dead{background:var(--dead-bg);border-color:var(--dead);}
+.card.ext {background:var(--ext-bg);border-color:var(--ext);}
+
+/* card header */
+.card-head{display:flex;align-items:center;gap:3px;}
+.tnum{
+  font-family:var(--mono);font-size:.78rem;font-weight:700;
+  color:var(--gold);min-width:18px;
+}
+.mode-btn{
+  font-size:.48rem;padding:1px 4px;border-radius:3px;
+  border:1px solid var(--muted);background:transparent;
+  color:var(--muted);cursor:pointer;letter-spacing:.04em;
+  transition:color .2s,border-color .2s;
+}
+.mode-btn.auto{color:var(--ext);border-color:var(--ext);}
+.ext-badge{
+  font-size:.44rem;color:var(--ext);border:1px solid var(--ext);
+  border-radius:3px;padding:1px 3px;
+  animation:pulse 1.5s ease-in-out infinite;
+}
+
+/* name rows */
+.name-row{
+  display:flex;align-items:center;gap:2px;
+  min-height:15px;cursor:pointer;
+  border-radius:3px;padding:1px 2px;
+  transition:background .15s;
+}
+.name-row:hover{background:rgba(255,255,255,.05);}
+.name-row.drop-target{background:rgba(201,168,76,.12);outline:1px dashed var(--gold);}
+.nlabel{font-size:.52rem;font-weight:700;min-width:10px;color:var(--gold);}
+.nlabel.b{color:var(--purple);}
+.nval{
+  font-size:.63rem;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;
+}
+.nval.empty{color:var(--muted);}
+.nval.dupe{color:var(--dupe);font-weight:700;}
+
+/* timer */
+.timer-row{display:flex;align-items:center;justify-content:space-between;margin-top:auto;}
+.tval{
+  font-family:var(--mono);font-size:.88rem;font-weight:700;
+  color:#b8b0c0;letter-spacing:.03em;
+  transition:color .3s;
+}
+.tval.warn{color:var(--warn);animation:blink .9s step-end infinite;}
+.tval.dead{color:var(--dead);}
+.timer-btns{display:flex;gap:2px;}
+.ibtn{
+  background:#1e1e32;border:none;border-radius:4px;
+  color:var(--text);cursor:pointer;
+  font-size:.72rem;padding:2px 5px;line-height:1;
+  transition:background .15s,transform .1s;
+}
+.ibtn:active{transform:scale(.93);background:#2a2a45;}
+
+/* ── MODAL ── */
+#modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.82);
+  display:none;align-items:center;justify-content:center;
+  z-index:200;backdrop-filter:blur(4px);
+}
+#modal-overlay.show{display:flex;}
+#modal-box{
+  background:#14141e;border:1px solid var(--gold);
+  border-radius:10px;padding:14px;
+  width:min(92vw,460px);max-height:78vh;
+  display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 0 40px rgba(201,168,76,.15);
+}
+#modal-title{
+  font-size:.75rem;color:var(--gold);font-weight:700;
+  letter-spacing:.12em;text-align:center;
+}
+#modal-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:5px;overflow-y:auto;
+}
+#modal-grid::-webkit-scrollbar{width:3px;}
+#modal-grid::-webkit-scrollbar-thumb{background:#333;}
+.mchip{
+  background:#1e1e2e;border:1px solid var(--card-b);
+  border-radius:6px;padding:8px 3px;
+  font-size:.72rem;color:var(--text);cursor:pointer;text-align:center;
+  transition:background .15s,border-color .15s;
+  font-family:var(--sans);
+}
+.mchip:hover{background:#28283c;border-color:var(--gold);}
+.mchip.dupe{color:var(--dupe);border-color:var(--dupe);background:#280010;}
+#modal-actions{display:flex;gap:8px;}
+#modal-clear{
+  flex:1;background:#220000;border:1px solid var(--dead);
+  border-radius:6px;color:var(--dead);
+  cursor:pointer;padding:6px;font-size:.72rem;font-weight:700;
+  font-family:var(--sans);
+}
+#modal-cancel{
+  flex:1;background:#1a1a28;border:1px solid var(--muted);
+  border-radius:6px;color:var(--muted);
+  cursor:pointer;padding:6px;font-size:.72rem;
+  font-family:var(--sans);
+}
+
+/* ── ANIMATIONS ── */
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes ext-flash{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}
+  70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}
+  100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
+}
+.card.ext-anim{animation:ext-flash .6s ease-out 3;}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="logo">◆ 付け回し管理<span>|</span><span id="dupe-alert">⚠ 指名被り</span></div>
+  <div id="clock"></div>
+</div>
+
+<!-- BODY -->
+<div id="body">
+  <!-- CAST PANEL -->
+  <div id="cast-panel">
+    <div id="cast-title">CAST</div>
+    <div id="cast-list"></div>
+  </div>
+  <!-- GRID -->
+  <div id="main">
+    <div id="grid"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-title"></div>
+    <div id="modal-grid"></div>
+    <div id="modal-actions">
+      <button id="modal-clear">クリア</button>
+      <button id="modal-cancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 定数 ─────────────────────────────────────────────
+const TABLE_COUNT   = 28;
+const INIT_SEC      = 60 * 60;
+const WARN_SEC      = 10 * 60;
+const AUTO_EXT_SEC  = 70 * 60;
+
+const CASTS = [
+  "さくら","ひな","れい","みゆ","なな","あおい","ゆき","りん",
+  "まい","こと","るな","すず","みお","はな","ちか","のあ",
+  "えま","かな","らん","しの","あや","ゆな","みか","ねね",
+  "りか","もも","ゆい","あみ","はる","せな",
+];
+
+// ── State ────────────────────────────────────────────
+const tables = Array.from({length: TABLE_COUNT}, (_, i) => ({
+  id:         i + 1,
+  mode:       'time',   // 'time' | 'auto'
+  honmei:     '',
+  banai:      '',
+  running:    false,
+  seconds:    INIT_SEC,
+  savedSec:   INIT_SEC,
+  startedAt:  null,
+  extended:   false,
+}));
+
+// ── DOM refs ─────────────────────────────────────────
+let modalState = null; // {tableId, field}
+let dragName   = null;
+
+// ── Helpers ──────────────────────────────────────────
+const fmt = s => {
+  if (s <= 0) return '00:00';
+  const m = String(Math.floor(s / 60)).padStart(2,'0');
+  const sec = String(s % 60).padStart(2,'0');
+  return `${m}:${sec}`;
+};
+
+const getDupes = () => {
+  const h={}, b={}, dupes=new Set();
+  tables.forEach(t => {
+    if (t.honmei) h[t.honmei] = (h[t.honmei]||0)+1;
+    if (t.banai)  b[t.banai]  = (b[t.banai] ||0)+1;
+  });
+  Object.entries(h).forEach(([k,v]) => v>1 && dupes.add(k));
+  Object.entries(b).forEach(([k,v]) => v>1 && dupes.add(k));
+  return dupes;
+};
+
+// ── Build UI ─────────────────────────────────────────
+function buildCasts() {
+  const list = document.getElementById('cast-list');
+  list.innerHTML = '';
+  CASTS.forEach(name => {
+    const el = document.createElement('div');
+    el.className = 'cast-chip';
+    el.textContent = name;
+    el.draggable = true;
+    el.dataset.name = name;
+
+    el.addEventListener('dragstart', e => {
+      dragName = name;
+      e.dataTransfer.effectAllowed = 'copy';
+      setTimeout(() => el.classList.add('drag-over-self'), 0);
+    });
+    el.addEventListener('dragend', () => {
+      dragName = null;
+      el.classList.remove('drag-over-self');
+    });
+    // tap → open modal if one is open
+    el.addEventListener('click', () => {
+      if (modalState) selectCast(name);
+    });
+    list.appendChild(el);
+  });
+}
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  tables.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = `card-${t.id}`;
+    card.innerHTML = `
+      <div class="card-head">
+        <span class="tnum">${t.id}</span>
+        <button class="mode-btn" id="modeBtn-${t.id}">TIME</button>
+        <span class="ext-badge" id="extBadge-${t.id}" style="display:none">+延長</span>
+      </div>
+      <div class="name-row" id="honRow-${t.id}" data-tid="${t.id}" data-field="honmei">
+        <span class="nlabel">本</span>
+        <span class="nval empty" id="hon-${t.id}">—</span>
+      </div>
+      <div class="name-row" id="banRow-${t.id}" data-tid="${t.id}" data-field="banai">
+        <span class="nlabel b">場</span>
+        <span class="nval empty" id="ban-${t.id}">—</span>
+      </div>
+      <div class="timer-row">
+        <span class="tval" id="tval-${t.id}">${fmt(INIT_SEC)}</span>
+        <div class="timer-btns">
+          <button class="ibtn" id="playBtn-${t.id}">▶</button>
+          <button class="ibtn" id="resetBtn-${t.id}" style="font-size:.65rem">↺</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+
+    // Mode btn
+    document.getElementById(`modeBtn-${t.id}`).addEventListener('click', () => toggleMode(t.id));
+
+    // Play/Pause
+    document.getElementById(`playBtn-${t.id}`).addEventListener('click', () => toggleTimer(t.id));
+
+    // Reset
+    document.getElementById(`resetBtn-${t.id}`).addEventListener('click', () => resetTable(t.id));
+
+    // Name rows – click & drop
+    ['honRow','banRow'].forEach(prefix => {
+      const row = document.getElementById(`${prefix}-${t.id}`);
+      const field = row.dataset.field;
+
+      row.addEventListener('click', () => openModal(t.id, field));
+
+      row.addEventListener('dragover', e => {
+        e.preventDefault();
+        row.classList.add('drop-target');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        row.classList.remove('drop-target');
+        if (dragName) setName(t.id, field, dragName);
+      });
+    });
+  });
+}
+
+// ── Actions ──────────────────────────────────────────
+function toggleMode(id) {
+  const t = tables[id-1];
+  t.mode = t.mode === 'time' ? 'auto' : 'time';
+  t.extended = false;
+  updateCardStyle(t);
+  document.getElementById(`modeBtn-${id}`).textContent = t.mode === 'auto' ? 'AUTO' : 'TIME';
+  document.getElementById(`modeBtn-${id}`).className = 'mode-btn' + (t.mode==='auto' ? ' auto' : '');
+  document.getElementById(`extBadge-${id}`).style.display = 'none';
+}
+
+function toggleTimer(id) {
+  const t = tables[id-1];
+  if (t.running) {
+    const elapsed = Math.floor((Date.now() - t.startedAt) / 1000);
+    t.savedSec = Math.max(0, t.savedSec - elapsed);
+    t.seconds  = t.savedSec;
+    t.running  = false;
+    t.startedAt = null;
+  } else {
+    t.running   = true;
+    t.startedAt = Date.now();
+  }
+  document.getElementById(`playBtn-${id}`).textContent = t.running ? '⏸' : '▶';
+}
+
+function resetTable(id) {
+  const t = tables[id-1];
+  t.running   = false;
+  t.seconds   = INIT_SEC;
+  t.savedSec  = INIT_SEC;
+  t.startedAt = null;
+  t.extended  = false;
+  t.honmei    = '';
+  t.banai     = '';
+  document.getElementById(`playBtn-${id}`).textContent = '▶';
+  document.getElementById(`extBadge-${id}`).style.display = 'none';
+  updateCardStyle(t);
+  updateCardNames(t, new Set());
+}
+
+function setName(id, field, name) {
+  tables[id-1][field] = name;
+  renderAll();
+}
+
+// ── Modal ─────────────────────────────────────────────
+function openModal(tableId, field) {
+  modalState = {tableId, field};
+  const label = field === 'honmei' ? '本指名' : '場内指名';
+  document.getElementById('modal-title').textContent = `${label}  —  ${tableId}卓`;
+
+  const dupes = getDupes();
+  const mg = document.getElementById('modal-grid');
+  mg.innerHTML = '';
+  CASTS.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'mchip' + (dupes.has(name) ? ' dupe' : '');
+    btn.textContent = name;
+    btn.addEventListener('click', () => selectCast(name));
+    mg.appendChild(btn);
+  });
+
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function selectCast(name) {
+  if (!modalState) return;
+  setName(modalState.tableId, modalState.field, name);
+  closeModal();
+}
+
+function closeModal() {
+  modalState = null;
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+document.getElementById('modal-clear').addEventListener('click', () => {
+  if (!modalState) return;
+  setName(modalState.tableId, modalState.field, '');
+  closeModal();
+});
+document.getElementById('modal-cancel').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// ── Render ────────────────────────────────────────────
+function updateCardStyle(t) {
+  const card = document.getElementById(`card-${t.id}`);
+  const isWarn = t.mode==='time' && t.running && t.seconds<=WARN_SEC && t.seconds>0;
+  const isDead = t.mode==='time' && t.running && t.seconds===0;
+  const isExt  = t.extended;
+  card.className = 'card' + (isWarn?' warn':isDead?' dead':isExt?' ext':'');
+
+  const tv = document.getElementById(`tval-${t.id}`);
+  tv.className = 'tval' + (isWarn?' warn':isDead?' dead':'');
+  tv.textContent = fmt(t.seconds);
+}
+
+function updateCardNames(t, dupes) {
+  const honEl = document.getElementById(`hon-${t.id}`);
+  const banEl = document.getElementById(`ban-${t.id}`);
+
+  honEl.textContent = t.honmei || '—';
+  honEl.className   = 'nval' + (t.honmei? (dupes.has(t.honmei)?' dupe':'') : ' empty');
+
+  banEl.textContent = t.banai || '—';
+  banEl.className   = 'nval' + (t.banai? (dupes.has(t.banai)?' dupe':'') : ' empty');
+}
+
+function renderAll() {
+  const dupes = getDupes();
+
+  // cast panel dupes
+  document.querySelectorAll('.cast-chip').forEach(el => {
+    el.classList.toggle('dupe', dupes.has(el.dataset.name));
+  });
+
+  // dupe alert header
+  document.getElementById('dupe-alert').classList.toggle('show', dupes.size > 0);
+
+  tables.forEach(t => {
+    updateCardStyle(t);
+    updateCardNames(t, dupes);
+  });
+
+  // refresh modal if open
+  if (modalState) {
+    document.querySelectorAll('.mchip').forEach((el, i) => {
+      el.className = 'mchip' + (dupes.has(CASTS[i]) ? ' dupe' : '');
+    });
+  }
+}
+
+// ── Timer loop ────────────────────────────────────────
+setInterval(() => {
+  tables.forEach(t => {
+    if (!t.running || !t.startedAt) return;
+    const elapsed = Math.floor((Date.now() - t.startedAt) / 1000);
+    let s = t.savedSec - elapsed;
+
+    // AUTO延長
+    if (t.mode === 'auto' && s <= WARN_SEC && !t.extended) {
+      t.extended  = true;
+      t.savedSec  = AUTO_EXT_SEC;
+      t.startedAt = Date.now();
+      s           = AUTO_EXT_SEC;
+
+      const card = document.getElementById(`card-${t.id}`);
+      card.classList.add('ext-anim');
+      setTimeout(() => card.classList.remove('ext-anim'), 2000);
+      document.getElementById(`extBadge-${t.id}`).style.display = 'inline';
+    }
+
+    if (s < 0) s = 0;
+    t.seconds = s;
+  });
+  renderAll();
+}, 1000);
+
+// ── Clock ─────────────────────────────────────────────
+function tickClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── Init ──────────────────────────────────────────────
+buildCasts();
+buildGrid();
+renderAll();
+</script>
+</body>
+</html>
