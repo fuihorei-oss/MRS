@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>listsystem</title>
 <style>
@@ -28,7 +28,7 @@
   --sans:'Arial','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;
 }
 
-/* ── 被り名札色 24パターン（背景+枠+文字を丸ごと変える） ── */
+/* 被り名札色 24パターン */
 .dk0 {background:#fee2e2!important;border-color:#b91c1c!important;color:#7f1d1d!important;font-weight:700!important;}
 .dk1 {background:#ffedd5!important;border-color:#c2410c!important;color:#7c2d12!important;font-weight:700!important;}
 .dk2 {background:#fef3c7!important;border-color:#b45309!important;color:#713f12!important;font-weight:700!important;}
@@ -61,12 +61,17 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 /* HEADER */
 #hdr{
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 12px;background:var(--hdr);
+  padding:0 8px;background:var(--hdr);
   flex-shrink:0;height:30px;border-bottom:2px solid #000;
 }
 #logo{font-size:.68rem;font-weight:700;letter-spacing:.18em;color:var(--htext);font-family:var(--mono);}
-#hdr-right{display:flex;align-items:center;gap:16px;}
-#clock{font-family:var(--mono);font-size:.7rem;color:#999;letter-spacing:.05em;}
+#hdr-right{display:flex;align-items:center;gap:8px;overflow:hidden;}
+#clock{font-family:var(--mono);font-size:.7rem;color:#999;letter-spacing:.05em;flex-shrink:0;}
+#user-email{font-size:.5rem;color:#555;font-family:var(--mono);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#sync-ind{width:7px;height:7px;border-radius:50%;background:#444;flex-shrink:0;}
+#sync-ind.ok{background:#16a34a;}
+#sync-ind.err{background:#dc2626;}
+#sync-ind.busy{background:#d97706;}
 
 #body{display:flex;flex:1;overflow:hidden;}
 
@@ -75,6 +80,7 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
   width:72px;flex-shrink:0;background:var(--panel);
   border-right:2px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
+  transition:width .2s;
 }
 #cp-hdr{
   display:flex;align-items:center;justify-content:space-between;
@@ -89,7 +95,6 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 #cast-list::-webkit-scrollbar{width:3px;}
 #cast-list::-webkit-scrollbar-thumb{background:#aaa;}
 
-/* キャストチップ：平常時はシンプル白、被りで丸ごと色変 */
 .chip{
   background:#fff;border:1px solid var(--border);
   border-radius:2px;padding:4px 3px;
@@ -101,12 +106,14 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 .chip.dragging-src{opacity:.35;border-style:dashed;}
 
 /* MAIN */
-#main{flex:1;padding:3px;overflow:hidden;}
+#main{flex:1;padding:3px;overflow-y:auto;overflow-x:hidden;min-width:0;}
+#main::-webkit-scrollbar{width:4px;}
+#main::-webkit-scrollbar-thumb{background:#aaa;border-radius:2px;}
 #grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
-  grid-template-rows:repeat(14,1fr);
-  gap:3px;width:100%;height:100%;
+  grid-template-columns:repeat(2,1fr);
+  grid-template-rows:auto;
+  gap:3px;width:100%;
 }
 
 /* CARD */
@@ -115,6 +122,7 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
   border-radius:3px;
   display:flex;flex-direction:row;align-items:stretch;
   overflow:hidden;transition:background .2s,border-color .2s;
+  min-height:54px;
 }
 .card.s-ci  {background:var(--c-ci);  border-color:var(--ci-b);}
 .card.s-warn{background:var(--c-warn);border-color:var(--warn-b);}
@@ -189,7 +197,6 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 .sd,.se{flex:1;min-width:0;align-items:flex-start;padding:2px 3px;justify-content:flex-start;}
 .ntags{display:flex;flex-wrap:wrap;gap:2px;width:100%;align-content:flex-start;}
 
-/* 名札タグ：平常時グレー、被り時は丸ごと色変わる */
 .ntag{
   font-size:.58rem;border-radius:2px;padding:1px 5px;
   border:1px solid var(--border2);background:#f0f0f0;color:#111;
@@ -252,7 +259,6 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 }
 .mc:hover{background:#e0e0e0;}
 .mc.sel{border-color:#000;background:#111;color:#fff;font-weight:700;}
-/* 被り中のモーダルチップも丸ごと色変え */
 
 /* 入店モーダル */
 #ci-mo .mb{width:min(90vw,360px);}
@@ -294,96 +300,126 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 #nci:focus{border-color:#333;}
 #acc{background:#111;border:2px solid #000;border-radius:2px;color:#fff;cursor:pointer;padding:8px;font-size:.75rem;font-weight:700;font-family:var(--sans);width:100%;}
 
-#btn-settings{
+/* ヘッダーボタン共通 */
+#btn-settings,#btn-logout{
   background:#333;border:1px solid #555;border-radius:2px;
   color:#ccc;cursor:pointer;font-size:.56rem;font-weight:700;
   letter-spacing:.08em;padding:3px 8px;font-family:var(--mono);
+  white-space:nowrap;flex-shrink:0;
   transition:background .15s,color .15s;
 }
 #btn-settings:hover{background:#555;color:#fff;}
+#btn-logout{border-color:#6b2323;}
+#btn-logout:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
 
 /* ── SETTINGS PANEL ── */
-#settings-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.45);
-  z-index:800;display:none;
-}
+#settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;display:none;}
 #settings-overlay.show{display:block;}
-
 #settings-panel{
-  position:fixed;top:0;right:0;bottom:0;
-  width:min(88vw,380px);
-  background:#f4f4f4;border-left:2px solid #333;
-  z-index:900;
+  position:fixed;top:0;right:0;bottom:0;width:min(88vw,380px);
+  background:#f4f4f4;border-left:2px solid #333;z-index:900;
   display:flex;flex-direction:column;
-  transform:translateX(100%);
-  transition:transform .25s ease;
-  overflow:hidden;
+  transform:translateX(100%);transition:transform .25s ease;overflow:hidden;
 }
 #settings-panel.open{transform:translateX(0);}
-
 #sp-hdr{
   display:flex;align-items:center;justify-content:space-between;
-  padding:0 14px;background:#111;height:36px;flex-shrink:0;
-  border-bottom:2px solid #000;
+  padding:0 14px;background:#111;height:36px;flex-shrink:0;border-bottom:2px solid #000;
 }
 #sp-title{font-size:.65rem;font-weight:700;letter-spacing:.2em;color:#fff;font-family:var(--mono);}
-#sp-close{
-  background:transparent;border:1px solid #555;border-radius:2px;
-  color:#aaa;cursor:pointer;font-size:.75rem;padding:2px 7px;
-}
+#sp-close{background:transparent;border:1px solid #555;border-radius:2px;color:#aaa;cursor:pointer;font-size:.75rem;padding:2px 7px;}
 #sp-close:hover{border-color:#fff;color:#fff;}
-
 #sp-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px;}
 #sp-body::-webkit-scrollbar{width:4px;}
 #sp-body::-webkit-scrollbar-thumb{background:#bbb;}
-
 .sp-section{display:flex;flex-direction:column;gap:6px;}
-.sp-sec-title{
-  font-size:.62rem;font-weight:700;letter-spacing:.1em;
-  color:#111;text-transform:uppercase;border-bottom:1px solid #bbb;padding-bottom:4px;
-}
+.sp-sec-title{font-size:.62rem;font-weight:700;letter-spacing:.1em;color:#111;text-transform:uppercase;border-bottom:1px solid #bbb;padding-bottom:4px;}
 .sp-sec-sub{font-size:.56rem;color:var(--muted);}
 .sp-divl{border:none;border-top:1px solid #ccc;}
-
-/* 卓番グリッド */
-#sp-table-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:5px;
-  max-height:260px;overflow-y:auto;
-  padding:2px;
-}
+#sp-table-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;max-height:260px;overflow-y:auto;padding:2px;}
 #sp-table-grid::-webkit-scrollbar{width:3px;}
 #sp-table-grid::-webkit-scrollbar-thumb{background:#bbb;}
 .sp-tnum-cell{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .sp-tnum-lbl{font-size:.42rem;color:var(--muted);font-family:var(--mono);}
-.sp-tnum-inp{
-  width:100%;background:#fff;border:1px solid var(--border);
-  border-radius:2px;padding:4px 3px;
-  font-size:.65rem;font-family:var(--mono);color:var(--text);
-  text-align:center;outline:none;
-}
+.sp-tnum-inp{width:100%;background:#fff;border:1px solid var(--border);border-radius:2px;padding:4px 3px;font-size:.65rem;font-family:var(--mono);color:var(--text);text-align:center;outline:none;}
 .sp-tnum-inp:focus{border-color:#333;background:#fffde7;}
-
-/* 卓数操作 */
 .sp-row{display:flex;align-items:center;gap:8px;}
-.sp-btn{
-  background:#e0e0e0;border:1px solid var(--border);border-radius:2px;
-  color:#333;cursor:pointer;font-size:.75rem;padding:4px 10px;font-weight:700;
-}
+.sp-btn{background:#e0e0e0;border:1px solid var(--border);border-radius:2px;color:#333;cursor:pointer;font-size:.75rem;padding:4px 10px;font-weight:700;}
 .sp-btn:hover{background:#ccc;}
-.sp-btn-apply{
-  margin-left:auto;
-  background:#1a1a1a;border:1px solid #000;border-radius:2px;
-  color:#fff;cursor:pointer;font-size:.6rem;padding:5px 10px;font-weight:700;letter-spacing:.05em;
-}
+.sp-btn-apply{margin-left:auto;background:#1a1a1a;border:1px solid #000;border-radius:2px;color:#fff;cursor:pointer;font-size:.6rem;padding:5px 10px;font-weight:700;letter-spacing:.05em;}
 .sp-btn-apply:hover{background:#333;}
-.sp-btn-danger{
-  background:#fff;border:1px solid var(--dead-b);border-radius:2px;
-  color:var(--dead-b);cursor:pointer;font-size:.65rem;
-  padding:8px;font-weight:700;width:100%;text-align:center;letter-spacing:.05em;
-}
+.sp-btn-danger{background:#fff;border:1px solid var(--dead-b);border-radius:2px;color:var(--dead-b);cursor:pointer;font-size:.65rem;padding:8px;font-weight:700;width:100%;text-align:center;letter-spacing:.05em;}
 .sp-btn-danger:hover{background:#fde8e8;}
+
+/* ── LOGIN SCREEN ── */
+#login-screen{
+  position:fixed;inset:0;background:#0a0a0a;
+  display:flex;align-items:center;justify-content:center;
+  z-index:9000;transition:opacity .3s;
+}
+#login-screen.hidden{opacity:0;pointer-events:none;}
+#login-box{
+  background:#161616;border:2px solid #2a2a2a;border-radius:4px;
+  padding:32px 28px;width:min(90vw,360px);
+  display:flex;flex-direction:column;gap:14px;
+  box-shadow:6px 6px 0 #000;
+}
+#login-logo{font-family:var(--mono);font-size:1.1rem;font-weight:700;letter-spacing:.25em;color:#fff;text-align:center;}
+#login-sub{font-size:.56rem;color:#444;text-align:center;letter-spacing:.15em;text-transform:uppercase;}
+.login-field{display:flex;flex-direction:column;gap:5px;}
+.login-label{font-size:.52rem;color:#666;letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono);}
+.login-inp{
+  background:#0d0d0d;border:1px solid #333;border-radius:2px;
+  padding:10px;font-size:.85rem;color:#ddd;
+  font-family:var(--mono);outline:none;width:100%;
+  user-select:text;
+}
+.login-inp:focus{border-color:#555;}
+.login-inp::placeholder{color:#2a2a2a;}
+#login-err{
+  font-size:.6rem;color:#f87171;text-align:center;display:none;
+  padding:6px;background:#1a0000;border-radius:2px;border:1px solid #3a0000;
+}
+#login-btn{
+  background:#1d4ed8;border:2px solid #1e3a8a;border-radius:2px;
+  color:#fff;cursor:pointer;padding:12px;
+  font-size:.8rem;font-weight:700;font-family:var(--sans);
+  letter-spacing:.08em;margin-top:4px;
+}
+#login-btn:hover{background:#2563eb;}
+#login-btn:active{background:#1e40af;}
+#login-btn:disabled{background:#1a2a4a;border-color:#1e2a4a;cursor:default;color:#446;}
+
+/* ── RESPONSIVE ── */
+/* モバイル縦 */
+@media(max-width:480px){
+  #cp{width:56px;}
+  .chip{font-size:.56rem;padding:3px 2px;}
+  .sa{width:34px;}
+  .a-num{font-size:.76rem;}
+  .sb{width:42px;}
+  .cbtn{font-size:.42rem;padding:2px 3px;}
+  .sc{width:68px;}
+  .tval{font-size:.82rem;}
+  .tbtns .tbtn{font-size:.52rem;padding:1px 4px;}
+  #grid{grid-template-columns:1fr;}
+  #user-email{display:none;}
+  #clock{font-size:.6rem;}
+}
+/* タブレット縦 / 小型横 */
+@media(min-width:481px)and(max-width:767px){
+  #grid{grid-template-columns:1fr;}
+  #cp{width:64px;}
+}
+/* 大画面デスクトップ */
+@media(min-width:1400px){
+  #grid{grid-template-columns:repeat(3,1fr);}
+  #cp{width:82px;}
+  .chip{font-size:.68rem;}
+}
+@media(min-width:1900px){
+  #grid{grid-template-columns:repeat(4,1fr);}
+}
 
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -395,11 +431,29 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 </head>
 <body>
 
+<!-- ═══════════════ ログイン画面 ═══════════════ -->
+<div id="login-screen">
+  <div id="login-box">
+    <div id="login-logo">LISTSYSTEM</div>
+    <div id="login-sub">Store Management</div>
+    <div class="login-field">
+      <div class="login-label">ログインID</div>
+      <input id="login-id" class="login-inp" type="text" placeholder="IDを入力" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div id="login-err"></div>
+    <button id="login-btn">ログイン</button>
+  </div>
+</div>
+
+<!-- ═══════════════ メインアプリ ═══════════════ -->
 <div id="hdr">
   <div id="logo">LISTSYSTEM</div>
   <div id="hdr-right">
+    <div id="sync-ind" title="同期状態"></div>
+    <span id="user-email"></span>
     <span id="clock"></span>
     <button id="btn-settings">⚙ SETTINGS</button>
+    <button id="btn-logout">ログアウト</button>
   </div>
 </div>
 
@@ -459,7 +513,7 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
   </div>
 </div>
 
-<!-- 設定パネル（右側スライドイン） -->
+<!-- 設定パネル -->
 <div id="settings-overlay"></div>
 <div id="settings-panel">
   <div id="sp-hdr">
@@ -467,17 +521,12 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
     <button id="sp-close">✕</button>
   </div>
   <div id="sp-body">
-
-    <!-- 卓番一覧設定 -->
     <div class="sp-section">
       <div class="sp-sec-title">卓番号設定</div>
       <div class="sp-sec-sub">各卓の表示番号を変更できます（数字・テキスト可）</div>
       <div id="sp-table-grid"></div>
     </div>
-
     <hr class="sp-divl">
-
-    <!-- 卓数設定 -->
     <div class="sp-section">
       <div class="sp-sec-title">表示卓数</div>
       <div class="sp-sec-sub">現在の卓数: <span id="sp-tc-cur">28</span> 卓</div>
@@ -489,16 +538,12 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
       </div>
       <div class="sp-sec-sub" style="color:#c00;">※ 適用すると現在のデータはリセットされます</div>
     </div>
-
     <hr class="sp-divl">
-
-    <!-- 全卓リセット -->
     <div class="sp-section">
       <div class="sp-sec-title">全卓リセット</div>
       <div class="sp-sec-sub">すべての卓のタイマー・指名・入店情報をリセットします</div>
       <button class="sp-btn-danger" id="sp-reset-all">全卓リセット実行</button>
     </div>
-
   </div>
 </div>
 
@@ -512,128 +557,316 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
   </div>
 </div>
 
-<script>
-const TC=28,INIT=3600,WARN=600,AEXT=4200,DN=24,PMAX=10;
+<script type="module">
+// ════════════════════════════════════════════════════════════════
+//  Firebase 設定
+//  Firebase Console でプロジェクトを作成し、以下の値を書き換えてください
+//  https://console.firebase.google.com/
+// ════════════════════════════════════════════════════════════════
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
-let casts=[
+const firebaseConfig = {
+  apiKey:            "AIzaSyD3JT0sdC_2Mad10DG4v-kqcsEEobN40rA",
+  authDomain:        "mrs2-48ee4.firebaseapp.com",
+  databaseURL:       "https://mrs2-48ee4-default-rtdb.firebaseio.com",
+  projectId:         "mrs2-48ee4",
+  storageBucket:     "mrs2-48ee4.firebasestorage.app",
+  messagingSenderId: "323459123885",
+  appId:             "1:323459123885:web:3f2fd5acaef2bb76c2d424",
+  measurementId:     "G-MWX72Y0FCT"
+};
+
+// ════════════════════════════════════════════════════════════════
+//  ログインに使用できるIDの一覧  ← ここを自由に変更してください
+// ════════════════════════════════════════════════════════════════
+const STORE_IDS = [
+  "STORE01",
+  "STORE02",
+  "STAFF01",
+];
+
+let fbApp, db;
+try {
+  fbApp = initializeApp(firebaseConfig);
+  db    = getFirestore(fbApp);
+} catch(e) {
+  console.error('Firebase init error:', e);
+}
+
+// ── 定数 ──────────────────────────────────────────────────────
+const TC=28, INIT=3600, WARN=600, AEXT=4200, DN=24, PMAX=10;
+
+let casts = [
   "さくら","ひな","れい","みゆ","なな","あおい","ゆき","りん",
   "まい","こと","るな","すず","みお","はな","ちか","のあ",
   "えま","かな","らん","しの","あや","ゆな","みか","ねね",
   "りか","もも","ゆい","あみ","はる","せな",
 ];
 
-// テーブルデータ（labelは表示用卓番、idは内部インデックス）
-const T=Array.from({length:TC},(_,i)=>({
-  id:i+1,
-  label:String(i+1),   // ← 表示卓番（変更可）
-  mode:'time',hon:[],ban:[],
-  et:'',pax:0,
-  run:false,sec:INIT,sav:INIT,sat:null,ext:false,
+const T = Array.from({length:TC}, (_,i) => ({
+  id:i+1, label:String(i+1), mode:'time', hon:[], ban:[],
+  et:'', pax:0, run:false, sec:INIT, sav:INIT, sat:null, ext:false,
 }));
 
-let mst=null,cid=null,cpax=0,tnId=null;
+let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
 
-// ── utils ──────────────────────────────────────────────
-const fmt=s=>{if(s<=0)return'00:00';return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
-const nowStr=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
-const ci=n=>{let h=0;for(let i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))&0xffff;return h%DN;};
+// ── Firestore 同期 ────────────────────────────────────────────
+function setSyncState(state) {
+  const el = document.getElementById('sync-ind');
+  el.className = state; // 'ok' | 'err' | 'busy' | ''
+  el.title = {ok:'同期済', err:'同期エラー', busy:'同期中...'}[state] || '';
+}
 
-function getDupes(){
-  const c={};
-  T.forEach(t=>[...t.hon,...t.ban].forEach(n=>{c[n]=(c[n]||0)+1;}));
-  const s=new Set();
-  Object.entries(c).forEach(([k,v])=>{if(v>1)s.add(k);});
+function getSerializableT() {
+  return T.map(t => ({
+    id:t.id, label:t.label, mode:t.mode,
+    hon:[...t.hon], ban:[...t.ban],
+    et:t.et, pax:t.pax,
+    run:t.run,
+    sav:t.run ? Math.max(0, t.sav - Math.floor((Date.now()-t.sat)/1000)) : t.sav,
+    sat:t.run ? Date.now() : null,
+    ext:t.ext,
+  }));
+}
+
+async function saveToFirestore() {
+  if (!currentUser || !db) return;
+  setSyncState('busy');
+  try {
+    await setDoc(doc(db, 'stores', currentUser), {
+      tables: getSerializableT(),
+      casts: [...casts],
+      updatedAt: serverTimestamp(),
+    });
+    setSyncState('ok');
+  } catch(e) {
+    console.error('Save error:', e);
+    setSyncState('err');
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToFirestore, 1500);
+}
+
+async function loadFromFirestore() {
+  if (!currentUser || !db) return;
+  setSyncState('busy');
+  try {
+    const snap = await getDoc(doc(db, 'stores', currentUser));
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.casts && Array.isArray(data.casts)) casts = [...data.casts];
+      if (data.tables && Array.isArray(data.tables)) {
+        T.length = 0;
+        data.tables.forEach(t => {
+          const elapsed = t.run && t.sat ? Math.floor((Date.now()-t.sat)/1000) : 0;
+          T.push({
+            id:t.id, label:t.label || String(t.id),
+            mode:t.mode || 'time',
+            hon:t.hon || [], ban:t.ban || [],
+            et:t.et || '', pax:t.pax || 0,
+            run:t.run || false,
+            sec:t.run ? Math.max(0, (t.sav||INIT) - elapsed) : (t.sav||INIT),
+            sav:t.sav || INIT,
+            sat:t.run ? Date.now() : null,
+            ext:t.ext || false,
+          });
+        });
+      }
+    }
+    setSyncState('ok');
+  } catch(e) {
+    console.error('Load error:', e);
+    setSyncState('err');
+  }
+}
+
+// ── Auth UI ───────────────────────────────────────────────────
+function showLoginScreen() {
+  const s = document.getElementById('login-screen');
+  s.style.display = 'flex';
+  s.classList.remove('hidden');
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('user-email').textContent = '';
+}
+
+function hideLoginScreen() {
+  const s = document.getElementById('login-screen');
+  s.classList.add('hidden');
+  setTimeout(() => { s.style.display = 'none'; }, 320);
+  document.getElementById('btn-logout').style.display = '';
+}
+
+// ── ログイン（ID のみ） ───────────────────────────────────────
+document.getElementById('login-id').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+document.getElementById('login-btn').addEventListener('click', doLogin);
+
+async function doLogin() {
+  const raw = document.getElementById('login-id').value.trim();
+  if (!raw) { showLoginErr('IDを入力してください'); return; }
+
+  // 大文字小文字を無視して照合
+  const matched = STORE_IDS.find(id => id.toLowerCase() === raw.toLowerCase());
+  if (!matched) { showLoginErr('このIDは登録されていません'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = '読み込み中...';
+  document.getElementById('login-err').style.display = 'none';
+
+  currentUser = matched;
+  sessionStorage.setItem('store_id', matched);
+  document.getElementById('user-email').textContent = matched;
+
+  await loadFromFirestore();
+  buildCasts(); buildGrid(); renderAll();
+  hideLoginScreen();
+
+  btn.disabled = false; btn.textContent = 'ログイン';
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('login-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  if (!confirm('ログアウトしますか？')) return;
+  sessionStorage.removeItem('store_id');
+  currentUser = null;
+  document.getElementById('login-id').value = '';
+  showLoginScreen();
+});
+
+// ── セッション復元（リロード時に再ログイン不要） ───────────────
+(async () => {
+  const saved = sessionStorage.getItem('store_id');
+  if (saved && STORE_IDS.includes(saved)) {
+    currentUser = saved;
+    document.getElementById('user-email').textContent = saved;
+    await loadFromFirestore();
+    buildCasts(); buildGrid(); renderAll();
+    hideLoginScreen();
+  } else {
+    showLoginScreen();
+  }
+})();
+
+// ── utils ─────────────────────────────────────────────────────
+const fmt = s => {
+  if (s <= 0) return '00:00';
+  return String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+};
+const nowStr = () => {
+  const d = new Date();
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+};
+const ci = n => { let h=0; for(let i=0;i<n.length;i++) h=(h*31+n.charCodeAt(i))&0xffff; return h%DN; };
+
+function getDupes() {
+  const c = {};
+  T.forEach(t => [...t.hon,...t.ban].forEach(n => { c[n]=(c[n]||0)+1; }));
+  const s = new Set();
+  Object.entries(c).forEach(([k,v]) => { if(v>1) s.add(k); });
   return s;
 }
 
-// dk クラス付け（名札・チップ丸ごと変色）
-function applyDk(el,name,dupes){
-  for(let i=0;i<DN;i++) el.classList.remove(`dk${i}`);
-  if(name && dupes.has(name)) el.classList.add(`dk${ci(name)}`);
+function applyDk(el, name, dupes) {
+  for (let i=0; i<DN; i++) el.classList.remove(`dk${i}`);
+  if (name && dupes.has(name)) el.classList.add(`dk${ci(name)}`);
 }
 
-// ── TOUCH D&D ──────────────────────────────────────────
-let dnd={active:false,name:'',srcEl:null,overEl:null};
-const ghost=document.getElementById('drag-ghost');
+// ── TOUCH D&D ─────────────────────────────────────────────────
+let dnd = {active:false, name:'', srcEl:null, overEl:null};
+const ghost = document.getElementById('drag-ghost');
 
-function tStart(e,name,srcEl){
-  if(e.cancelable)e.preventDefault();
-  dnd={active:true,name,srcEl,overEl:null};
+function tStart(e, name, srcEl) {
+  if (e.cancelable) e.preventDefault();
+  dnd = {active:true, name, srcEl, overEl:null};
   srcEl.classList.add('dragging-src');
-  ghost.textContent=name;ghost.style.display='block';
+  ghost.textContent = name; ghost.style.display = 'block';
   mvGhost(e.touches[0]);
 }
-function tMove(e){
-  if(!dnd.active)return;
-  if(e.cancelable)e.preventDefault();
-  const t=e.touches[0]; mvGhost(t);
-  ghost.style.display='none';
-  const el=document.elementFromPoint(t.clientX,t.clientY);
-  ghost.style.display='block';
-  const drop=el?el.closest('.sec[data-f]'):null;
-  if(dnd.overEl&&dnd.overEl!==drop) dnd.overEl.classList.remove('dt');
-  if(drop){drop.classList.add('dt');dnd.overEl=drop;}
-  else dnd.overEl=null;
+function tMove(e) {
+  if (!dnd.active) return;
+  if (e.cancelable) e.preventDefault();
+  const t = e.touches[0]; mvGhost(t);
+  ghost.style.display = 'none';
+  const el = document.elementFromPoint(t.clientX, t.clientY);
+  ghost.style.display = 'block';
+  const drop = el ? el.closest('.sec[data-f]') : null;
+  if (dnd.overEl && dnd.overEl !== drop) dnd.overEl.classList.remove('dt');
+  if (drop) { drop.classList.add('dt'); dnd.overEl = drop; } else dnd.overEl = null;
 }
-function tEnd(e){
-  if(!dnd.active)return;
-  if(e.cancelable)e.preventDefault();
-  ghost.style.display='none';
+function tEnd(e) {
+  if (!dnd.active) return;
+  if (e.cancelable) e.preventDefault();
+  ghost.style.display = 'none';
   dnd.srcEl.classList.remove('dragging-src');
-  if(dnd.overEl){
+  if (dnd.overEl) {
     dnd.overEl.classList.remove('dt');
-    addN(parseInt(dnd.overEl.dataset.tid),dnd.overEl.dataset.f,dnd.name);
+    addN(parseInt(dnd.overEl.dataset.tid), dnd.overEl.dataset.f, dnd.name);
   }
-  dnd={active:false,name:'',srcEl:null,overEl:null};
+  dnd = {active:false, name:'', srcEl:null, overEl:null};
 }
-function mvGhost(t){ghost.style.left=t.clientX+'px';ghost.style.top=t.clientY+'px';}
-document.addEventListener('touchmove',tMove,{passive:false});
-document.addEventListener('touchend',tEnd,{passive:false});
-document.addEventListener('touchcancel',tEnd,{passive:false});
+function mvGhost(t) { ghost.style.left = t.clientX+'px'; ghost.style.top = t.clientY+'px'; }
+document.addEventListener('touchmove', tMove, {passive:false});
+document.addEventListener('touchend',  tEnd,  {passive:false});
+document.addEventListener('touchcancel',tEnd, {passive:false});
 
-// ── BUILD CASTS ────────────────────────────────────────
-function buildCasts(){
-  const l=document.getElementById('cast-list');l.innerHTML='';
-  casts.forEach(n=>{
-    const e=document.createElement('div');
-    e.className='chip';e.textContent=n;e.dataset.name=n;
-    e.addEventListener('touchstart',ev=>tStart(ev,n,e),{passive:false});
-    e.draggable=true;
-    e.addEventListener('dragstart',ev=>{ev.dataTransfer.setData('text/plain',n);ev.dataTransfer.effectAllowed='copy';setTimeout(()=>e.classList.add('dragging-src'),0);});
-    e.addEventListener('dragend',()=>e.classList.remove('dragging-src'));
+// ── BUILD CASTS ───────────────────────────────────────────────
+function buildCasts() {
+  const l = document.getElementById('cast-list'); l.innerHTML = '';
+  casts.forEach(n => {
+    const e = document.createElement('div');
+    e.className = 'chip'; e.textContent = n; e.dataset.name = n;
+    e.addEventListener('touchstart', ev => tStart(ev, n, e), {passive:false});
+    e.draggable = true;
+    e.addEventListener('dragstart', ev => {
+      ev.dataTransfer.setData('text/plain', n);
+      ev.dataTransfer.effectAllowed = 'copy';
+      setTimeout(() => e.classList.add('dragging-src'), 0);
+    });
+    e.addEventListener('dragend', () => e.classList.remove('dragging-src'));
     l.appendChild(e);
   });
 }
 
-// ── BUILD GRID ─────────────────────────────────────────
-function buildGrid(){
-  const g=document.getElementById('grid');g.innerHTML='';
-  T.forEach(t=>{
-    const card=document.createElement('div');
-    card.className='card';card.id=`c${t.id}`;
-    card.innerHTML=`
+// ── BUILD GRID ────────────────────────────────────────────────
+function buildGrid() {
+  const g = document.getElementById('grid'); g.innerHTML = '';
+  T.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.id = `c${t.id}`;
+    card.innerHTML = `
       <div class="sec sa">
         <span class="slb">卓</span>
         <span class="a-num" id="anum${t.id}">${t.label}</span>
         <div class="a-mid">
-          <button class="mbtn" id="mb${t.id}">TM</button>
-          <span class="ebdg" id="eb${t.id}" style="display:none">延長</span>
+          <button class="mbtn${t.mode==='auto'?' au':''}" id="mb${t.id}">${t.mode==='auto'?'AU':'TM'}</button>
+          <span class="ebdg" id="eb${t.id}" style="display:${t.ext?'inline':'none'}">延長</span>
         </div>
         <div class="a-pax">
           <button class="pxb" id="pm${t.id}">-</button>
-          <span class="pxv" id="pv${t.id}">—</span>
+          <span class="pxv${t.pax>0?' on':''}" id="pv${t.id}">${t.pax>0?t.pax+'名':'—'}</span>
           <button class="pxb" id="pp${t.id}">+</button>
         </div>
       </div>
       <div class="sec sb">
-        <button class="cbtn" id="cb${t.id}">入店</button>
-        <span class="edisp empty" id="et${t.id}">--:--</span>
+        <button class="cbtn${t.et?' done':''}" id="cb${t.id}">${t.et?'✔ 入店済':'入店'}</button>
+        <span class="edisp${t.et?'':' empty'}" id="et${t.id}">${t.et||'--:--'}</span>
       </div>
       <div class="sec sc">
         <span class="slb">タイマー</span>
-        <span class="tval" id="tv${t.id}">${fmt(INIT)}</span>
+        <span class="tval" id="tv${t.id}">${fmt(t.sec)}</span>
         <div class="tbtns">
-          <button class="tbtn" id="pb${t.id}">▶</button>
+          <button class="tbtn" id="pb${t.id}">${t.run?'⏸':'▶'}</button>
           <button class="tbtn" id="rb${t.id}">↺</button>
         </div>
       </div>
@@ -648,346 +881,288 @@ function buildGrid(){
     `;
     g.appendChild(card);
 
-    // 卓番タップ → 卓番設定モーダル
-    document.getElementById(`anum${t.id}`).addEventListener('click',e=>{e.stopPropagation();openTN(t.id);});
-    // 人数
-    document.getElementById(`pm${t.id}`).addEventListener('click',e=>{e.stopPropagation();if(t.pax>0)t.pax--;renderAll();});
-    document.getElementById(`pp${t.id}`).addEventListener('click',e=>{e.stopPropagation();if(t.pax<PMAX)t.pax++;renderAll();});
-    // モード
-    document.getElementById(`mb${t.id}`).addEventListener('click',()=>toggleMode(t.id));
-    // タイマー
-    document.getElementById(`pb${t.id}`).addEventListener('click',()=>toggleTimer(t.id));
-    document.getElementById(`rb${t.id}`).addEventListener('click',()=>resetT(t.id));
-    // 入店
-    document.getElementById(`cb${t.id}`).addEventListener('click',e=>{e.stopPropagation();openCI(t.id);});
-    document.getElementById(`et${t.id}`).addEventListener('click',e=>{e.stopPropagation();openCI(t.id);});
-    // 指名セクション
-    [`hs${t.id}`,`bs${t.id}`].forEach(sid=>{
-      const sec=document.getElementById(sid);const f=sec.dataset.f;
-      sec.addEventListener('click',e=>{if(!e.target.classList.contains('ndel'))openNM(t.id,f);});
-      sec.addEventListener('dragover',e=>{e.preventDefault();sec.classList.add('dt');});
-      sec.addEventListener('dragleave',()=>sec.classList.remove('dt'));
-      sec.addEventListener('drop',e=>{e.preventDefault();sec.classList.remove('dt');const n=e.dataTransfer.getData('text/plain');if(n)addN(t.id,f,n);});
+    document.getElementById(`anum${t.id}`).addEventListener('click', e => { e.stopPropagation(); openTN(t.id); });
+    document.getElementById(`pm${t.id}`).addEventListener('click', e => { e.stopPropagation(); if(t.pax>0){t.pax--;renderAll();scheduleSave();} });
+    document.getElementById(`pp${t.id}`).addEventListener('click', e => { e.stopPropagation(); if(t.pax<PMAX){t.pax++;renderAll();scheduleSave();} });
+    document.getElementById(`mb${t.id}`).addEventListener('click', () => toggleMode(t.id));
+    document.getElementById(`pb${t.id}`).addEventListener('click', () => toggleTimer(t.id));
+    document.getElementById(`rb${t.id}`).addEventListener('click', () => resetT(t.id));
+    document.getElementById(`cb${t.id}`).addEventListener('click', e => { e.stopPropagation(); openCI(t.id); });
+    document.getElementById(`et${t.id}`).addEventListener('click', e => { e.stopPropagation(); openCI(t.id); });
+    [`hs${t.id}`,`bs${t.id}`].forEach(sid => {
+      const sec = document.getElementById(sid); const f = sec.dataset.f;
+      sec.addEventListener('click', e => { if(!e.target.classList.contains('ndel')) openNM(t.id, f); });
+      sec.addEventListener('dragover',  e => { e.preventDefault(); sec.classList.add('dt'); });
+      sec.addEventListener('dragleave', () => sec.classList.remove('dt'));
+      sec.addEventListener('drop', e => { e.preventDefault(); sec.classList.remove('dt'); const n=e.dataTransfer.getData('text/plain'); if(n) addN(t.id,f,n); });
     });
   });
 }
 
-// ── ACTIONS ────────────────────────────────────────────
-function toggleMode(id){
-  const t=T[id-1];t.mode=t.mode==='time'?'auto':'time';t.ext=false;
-  const b=document.getElementById(`mb${id}`);
-  b.textContent=t.mode==='auto'?'AU':'TM';
-  b.className='mbtn'+(t.mode==='auto'?' au':'');
-  document.getElementById(`eb${id}`).style.display='none';
-  renderAll();
+// ── ACTIONS ───────────────────────────────────────────────────
+function toggleMode(id) {
+  const t = T[id-1]; t.mode = t.mode==='time'?'auto':'time'; t.ext = false;
+  const b = document.getElementById(`mb${id}`);
+  b.textContent = t.mode==='auto'?'AU':'TM';
+  b.className = 'mbtn'+(t.mode==='auto'?' au':'');
+  document.getElementById(`eb${id}`).style.display = 'none';
+  renderAll(); scheduleSave();
 }
-function toggleTimer(id){
-  const t=T[id-1];
-  if(t.run){t.sav=Math.max(0,t.sav-Math.floor((Date.now()-t.sat)/1000));t.sec=t.sav;t.run=false;t.sat=null;}
-  else{t.run=true;t.sat=Date.now();}
-  document.getElementById(`pb${id}`).textContent=t.run?'⏸':'▶';
+function toggleTimer(id) {
+  const t = T[id-1];
+  if (t.run) { t.sav=Math.max(0,t.sav-Math.floor((Date.now()-t.sat)/1000)); t.sec=t.sav; t.run=false; t.sat=null; }
+  else { t.run=true; t.sat=Date.now(); }
+  document.getElementById(`pb${id}`).textContent = t.run?'⏸':'▶';
+  scheduleSave();
 }
-function resetT(id){
-  const t=T[id-1];
-  Object.assign(t,{run:false,sec:INIT,sav:INIT,sat:null,ext:false,hon:[],ban:[],et:'',pax:0});
-  document.getElementById(`pb${id}`).textContent='▶';
-  document.getElementById(`eb${id}`).style.display='none';
-  renderAll();
+function resetT(id) {
+  const t = T[id-1];
+  Object.assign(t, {run:false,sec:INIT,sav:INIT,sat:null,ext:false,hon:[],ban:[],et:'',pax:0});
+  document.getElementById(`pb${id}`).textContent = '▶';
+  document.getElementById(`eb${id}`).style.display = 'none';
+  renderAll(); scheduleSave();
 }
-function addN(id,f,n){const a=T[id-1][f];if(!a.includes(n))a.push(n);renderAll();}
-function remN(id,f,n){const t=T[id-1];t[f]=t[f].filter(x=>x!==n);renderAll();}
+function addN(id, f, n) { const a=T[id-1][f]; if(!a.includes(n)) a.push(n); renderAll(); scheduleSave(); }
+function remN(id, f, n) { T[id-1][f]=T[id-1][f].filter(x=>x!==n); renderAll(); scheduleSave(); }
 
-// ── 卓番設定モーダル ────────────────────────────────────
-function openTN(id){
-  tnId=id;
-  document.getElementById('tn-title').textContent=`卓番設定  /  現在: ${T[id-1].label}`;
-  document.getElementById('tn-input').value=T[id-1].label;
+// ── 卓番設定モーダル ──────────────────────────────────────────
+function openTN(id) {
+  tnId = id;
+  document.getElementById('tn-title').textContent = `卓番設定  /  現在: ${T[id-1].label}`;
+  document.getElementById('tn-input').value = T[id-1].label;
   document.getElementById('tn-mo').classList.add('show');
-  setTimeout(()=>{document.getElementById('tn-input').select();},100);
+  setTimeout(() => document.getElementById('tn-input').select(), 100);
 }
-document.getElementById('tn-ok').addEventListener('click',()=>{
-  if(tnId===null)return;
-  const v=document.getElementById('tn-input').value.trim();
-  if(v) T[tnId-1].label=v;
-  document.getElementById(`anum${tnId}`).textContent=T[tnId-1].label;
+document.getElementById('tn-ok').addEventListener('click', () => {
+  if (tnId===null) return;
+  const v = document.getElementById('tn-input').value.trim();
+  if (v) T[tnId-1].label = v;
+  const el = document.getElementById(`anum${tnId}`);
+  if (el) el.textContent = T[tnId-1].label;
   document.getElementById('tn-mo').classList.remove('show');
-  tnId=null;
+  tnId = null; scheduleSave();
 });
-document.getElementById('tn-cl').addEventListener('click',()=>{document.getElementById('tn-mo').classList.remove('show');tnId=null;});
-document.getElementById('tn-mo').addEventListener('click',e=>{if(e.target.id==='tn-mo'){document.getElementById('tn-mo').classList.remove('show');tnId=null;}});
-document.getElementById('tn-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('tn-ok').click();});
+document.getElementById('tn-cl').addEventListener('click', () => { document.getElementById('tn-mo').classList.remove('show'); tnId=null; });
+document.getElementById('tn-mo').addEventListener('click', e => { if(e.target.id==='tn-mo'){document.getElementById('tn-mo').classList.remove('show');tnId=null;} });
+document.getElementById('tn-input').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('tn-ok').click(); });
 
-// ── 入店モーダル ────────────────────────────────────────
-function buildPax(){
-  const r=document.getElementById('pxrow');r.innerHTML='';
-  for(let i=1;i<=PMAX;i++){
-    const b=document.createElement('button');
-    b.className='pxopt'+(cpax===i?' sel':'');b.textContent=`${i}名`;
-    b.addEventListener('click',()=>{cpax=i;buildPax();});
+// ── 入店モーダル ──────────────────────────────────────────────
+function buildPax() {
+  const r = document.getElementById('pxrow'); r.innerHTML = '';
+  for (let i=1; i<=PMAX; i++) {
+    const b = document.createElement('button');
+    b.className = 'pxopt'+(cpax===i?' sel':''); b.textContent = `${i}名`;
+    b.addEventListener('click', () => { cpax=i; buildPax(); });
     r.appendChild(b);
   }
 }
-function openCI(id){
-  cid=id;const t=T[id-1];cpax=t.pax||0;
-  document.getElementById('ci-title').textContent=`入店  /  ${t.label}番卓`;
-  document.getElementById('ci-now').textContent=t.et?`▶ 再入店（現在: ${t.et}）`:'▶ 今すぐ入店（現在時刻）';
-  document.getElementById('tci').value=t.et||nowStr();
+function openCI(id) {
+  cid = id; const t = T[id-1]; cpax = t.pax||0;
+  document.getElementById('ci-title').textContent = `入店  /  ${t.label}番卓`;
+  document.getElementById('ci-now').textContent = t.et ? `▶ 再入店（現在: ${t.et}）` : '▶ 今すぐ入店（現在時刻）';
+  document.getElementById('tci').value = t.et || nowStr();
   buildPax();
   document.getElementById('ci-mo').classList.add('show');
 }
-function doCI(ts){
-  if(cid===null)return;
-  const t=T[cid-1];t.et=ts;if(cpax>0)t.pax=cpax;
-  if(!t.run){t.run=true;t.sat=Date.now();document.getElementById(`pb${cid}`).textContent='⏸';}
-  const card=document.getElementById(`c${cid}`);
-  card.classList.add('cif');setTimeout(()=>card.classList.remove('cif'),900);
-  document.getElementById('ci-mo').classList.remove('show');cid=null;renderAll();
+function doCI(ts) {
+  if (cid===null) return;
+  const t = T[cid-1]; t.et = ts; if(cpax>0) t.pax = cpax;
+  if (!t.run) { t.run=true; t.sat=Date.now(); document.getElementById(`pb${cid}`).textContent='⏸'; }
+  const card = document.getElementById(`c${cid}`);
+  card.classList.add('cif'); setTimeout(() => card.classList.remove('cif'), 900);
+  document.getElementById('ci-mo').classList.remove('show'); cid=null; renderAll(); scheduleSave();
 }
-function closeCI(){
-  if(cid!==null&&cpax>0)T[cid-1].pax=cpax;
-  document.getElementById('ci-mo').classList.remove('show');cid=null;renderAll();
+function closeCI() {
+  if (cid!==null && cpax>0) T[cid-1].pax = cpax;
+  document.getElementById('ci-mo').classList.remove('show'); cid=null; renderAll();
 }
-document.getElementById('ci-now').addEventListener('click',()=>doCI(nowStr()));
-document.getElementById('tset').addEventListener('click',()=>{const v=document.getElementById('tci').value;if(v&&cid!==null)doCI(v);});
-document.getElementById('tclr').addEventListener('click',()=>{
-  if(cid===null)return;const t=T[cid-1];t.et='';if(cpax>0)t.pax=cpax;
-  Object.assign(t,{run:false,sec:INIT,sav:INIT,sat:null,ext:false});
-  document.getElementById(`pb${cid}`).textContent='▶';
-  document.getElementById(`eb${cid}`).style.display='none';
-  document.getElementById('ci-mo').classList.remove('show');cid=null;renderAll();
+document.getElementById('ci-now').addEventListener('click', () => doCI(nowStr()));
+document.getElementById('tset').addEventListener('click', () => { const v=document.getElementById('tci').value; if(v&&cid!==null) doCI(v); });
+document.getElementById('tclr').addEventListener('click', () => {
+  if (cid===null) return; const t=T[cid-1]; t.et=''; if(cpax>0) t.pax=cpax;
+  Object.assign(t, {run:false,sec:INIT,sav:INIT,sat:null,ext:false});
+  document.getElementById(`pb${cid}`).textContent = '▶';
+  document.getElementById(`eb${cid}`).style.display = 'none';
+  document.getElementById('ci-mo').classList.remove('show'); cid=null; renderAll(); scheduleSave();
 });
-document.getElementById('ci-cl').addEventListener('click',closeCI);
-document.getElementById('ci-mo').addEventListener('click',e=>{if(e.target.id==='ci-mo')closeCI();});
+document.getElementById('ci-cl').addEventListener('click', closeCI);
+document.getElementById('ci-mo').addEventListener('click', e => { if(e.target.id==='ci-mo') closeCI(); });
 
-// ── 指名モーダル ────────────────────────────────────────
-function openNM(tid,f){
-  mst={tid,f,sel:[...T[tid-1][f]]};
-  document.getElementById('nm-title').textContent=`${f==='hon'?'本指名':'場内指名'}  /  ${T[tid-1].label}番卓`;
+// ── 指名モーダル ──────────────────────────────────────────────
+function openNM(tid, f) {
+  mst = {tid, f, sel:[...T[tid-1][f]]};
+  document.getElementById('nm-title').textContent = `${f==='hon'?'本指名':'場内指名'}  /  ${T[tid-1].label}番卓`;
   refreshNM();
   document.getElementById('nm-mo').classList.add('show');
 }
-function refreshNM(){
-  const d=getDupes();
-  const sd=document.getElementById('msel');sd.innerHTML='';
-  if(!mst.sel.length){sd.innerHTML='<span class="sph">キャストを選択してください</span>';}
-  else mst.sel.forEach(n=>{
-    const tag=document.createElement('span');tag.className='stag';
-    // 選択済みタグも被り色を適用
-    applyDk(tag,n,d);
-    tag.innerHTML=`${n}<span class="sdel">×</span>`;
-    tag.querySelector('.sdel').addEventListener('click',e=>{e.stopPropagation();mst.sel=mst.sel.filter(x=>x!==n);refreshNM();});
+function refreshNM() {
+  const d = getDupes();
+  const sd = document.getElementById('msel'); sd.innerHTML = '';
+  if (!mst.sel.length) { sd.innerHTML='<span class="sph">キャストを選択してください</span>'; }
+  else mst.sel.forEach(n => {
+    const tag = document.createElement('span'); tag.className = 'stag';
+    applyDk(tag, n, d);
+    tag.innerHTML = `${n}<span class="sdel">×</span>`;
+    tag.querySelector('.sdel').addEventListener('click', e => { e.stopPropagation(); mst.sel=mst.sel.filter(x=>x!==n); refreshNM(); });
     sd.appendChild(tag);
   });
-  const mg=document.getElementById('mgrid');mg.innerHTML='';
-  casts.forEach(n=>{
-    const isSel=mst.sel.includes(n);
-    const b=document.createElement('button');
-    b.className='mc'+(isSel?' sel':'');b.textContent=n;b.dataset.name=n;
-    if(!isSel) applyDk(b,n,d);
-    b.addEventListener('click',()=>{
-      mst.sel=mst.sel.includes(n)?mst.sel.filter(x=>x!==n):[...mst.sel,n];refreshNM();
+  const mg = document.getElementById('mgrid'); mg.innerHTML = '';
+  casts.forEach(n => {
+    const isSel = mst.sel.includes(n);
+    const b = document.createElement('button');
+    b.className = 'mc'+(isSel?' sel':''); b.textContent = n; b.dataset.name = n;
+    if (!isSel) applyDk(b, n, d);
+    b.addEventListener('click', () => {
+      mst.sel = mst.sel.includes(n) ? mst.sel.filter(x=>x!==n) : [...mst.sel,n]; refreshNM();
     });
     mg.appendChild(b);
   });
 }
-document.getElementById('nm-ok').addEventListener('click',()=>{
-  if(!mst)return;T[mst.tid-1][mst.f]=[...mst.sel];mst=null;
-  document.getElementById('nm-mo').classList.remove('show');renderAll();
+document.getElementById('nm-ok').addEventListener('click', () => {
+  if (!mst) return; T[mst.tid-1][mst.f]=[...mst.sel]; mst=null;
+  document.getElementById('nm-mo').classList.remove('show'); renderAll(); scheduleSave();
 });
-document.getElementById('nm-cl').addEventListener('click',()=>{mst=null;document.getElementById('nm-mo').classList.remove('show');});
-document.getElementById('nm-mo').addEventListener('click',e=>{if(e.target.id==='nm-mo'){mst=null;document.getElementById('nm-mo').classList.remove('show');}});
+document.getElementById('nm-cl').addEventListener('click', () => { mst=null; document.getElementById('nm-mo').classList.remove('show'); });
+document.getElementById('nm-mo').addEventListener('click', e => { if(e.target.id==='nm-mo'){mst=null;document.getElementById('nm-mo').classList.remove('show');} });
 
-// ── キャスト追加 ────────────────────────────────────────
-document.getElementById('btn-addcast').addEventListener('click',()=>{
+// ── キャスト追加 ──────────────────────────────────────────────
+document.getElementById('btn-addcast').addEventListener('click', () => {
   document.getElementById('nci').value='';
   document.getElementById('ac-mo').classList.add('show');
-  setTimeout(()=>document.getElementById('nci').focus(),100);
+  setTimeout(() => document.getElementById('nci').focus(), 100);
 });
-document.getElementById('ac-cl').addEventListener('click',()=>document.getElementById('ac-mo').classList.remove('show'));
-document.getElementById('ac-mo').addEventListener('click',e=>{if(e.target.id==='ac-mo')document.getElementById('ac-mo').classList.remove('show');});
-document.getElementById('acc').addEventListener('click',addCast);
-document.getElementById('nci').addEventListener('keydown',e=>{if(e.key==='Enter')addCast();});
-function addCast(){
-  const inp=document.getElementById('nci');const n=inp.value.trim();
-  if(!n||casts.includes(n)){inp.style.borderColor='#dc2626';setTimeout(()=>inp.style.borderColor='',800);return;}
-  casts.push(n);buildCasts();renderAll();
+document.getElementById('ac-cl').addEventListener('click', () => document.getElementById('ac-mo').classList.remove('show'));
+document.getElementById('ac-mo').addEventListener('click', e => { if(e.target.id==='ac-mo') document.getElementById('ac-mo').classList.remove('show'); });
+document.getElementById('acc').addEventListener('click', addCast);
+document.getElementById('nci').addEventListener('keydown', e => { if(e.key==='Enter') addCast(); });
+function addCast() {
+  const inp = document.getElementById('nci'); const n = inp.value.trim();
+  if (!n || casts.includes(n)) { inp.style.borderColor='#dc2626'; setTimeout(()=>inp.style.borderColor='',800); return; }
+  casts.push(n); buildCasts(); renderAll(); scheduleSave();
   document.getElementById('ac-mo').classList.remove('show');
 }
 
-// ── RENDER ──────────────────────────────────────────────
-function renderAll(){
-  const d=getDupes();
+// ── RENDER ────────────────────────────────────────────────────
+function renderAll() {
+  const d = getDupes();
+  document.querySelectorAll('.chip').forEach(e => applyDk(e, e.dataset.name, d));
+  T.forEach(t => {
+    const card = document.getElementById(`c${t.id}`); if (!card) return;
+    const isW = t.mode==='time'&&t.run&&t.sec<=WARN&&t.sec>0;
+    const isD = t.mode==='time'&&t.run&&t.sec===0;
+    const hasCif = card.classList.contains('cif');
+    const hasEf  = card.classList.contains('ef');
+    let cls = 'card';
+    if(isW) cls+=' s-warn'; else if(isD) cls+=' s-dead';
+    else if(t.ext) cls+=' s-ext'; else if(t.et) cls+=' s-ci';
+    if(hasCif) cls+=' cif'; if(hasEf) cls+=' ef';
+    card.className = cls;
 
-  // キャストチップ
-  document.querySelectorAll('.chip').forEach(e=>{
-    applyDk(e,e.dataset.name,d);
-  });
+    const tv = document.getElementById(`tv${t.id}`);
+    tv.className = 'tval'+(isW?' warn':isD?' dead':''); tv.textContent = fmt(t.sec);
 
-  T.forEach(t=>{
-    const card=document.getElementById(`c${t.id}`);
-    const isW=t.mode==='time'&&t.run&&t.sec<=WARN&&t.sec>0;
-    const isD=t.mode==='time'&&t.run&&t.sec===0;
-    const hasCif=card.classList.contains('cif');
-    const hasEf=card.classList.contains('ef');
-    let cls='card';
-    if(isW)cls+=' s-warn';else if(isD)cls+=' s-dead';
-    else if(t.ext)cls+=' s-ext';else if(t.et)cls+=' s-ci';
-    if(hasCif)cls+=' cif';if(hasEf)cls+=' ef';
-    card.className=cls;
+    const cb = document.getElementById(`cb${t.id}`);
+    cb.className = 'cbtn'+(t.et?' done':''); cb.textContent = t.et?'✔ 入店済':'入店';
 
-    // タイマー
-    const tv=document.getElementById(`tv${t.id}`);
-    tv.className='tval'+(isW?' warn':isD?' dead':'');
-    tv.textContent=fmt(t.sec);
+    const et = document.getElementById(`et${t.id}`);
+    et.textContent = t.et||'--:--'; et.className = 'edisp'+(t.et?'':' empty');
 
-    // 入店ボタン
-    const cb=document.getElementById(`cb${t.id}`);
-    cb.className='cbtn'+(t.et?' done':'');
-    cb.textContent=t.et?'✔ 入店済':'入店';
+    const pv = document.getElementById(`pv${t.id}`);
+    pv.textContent = t.pax>0?`${t.pax}名`:'—'; pv.className = 'pxv'+(t.pax>0?' on':'');
 
-    // 入店時刻
-    const et=document.getElementById(`et${t.id}`);
-    et.textContent=t.et||'--:--';
-    et.className='edisp'+(t.et?'':' empty');
-
-    // 人数
-    const pv=document.getElementById(`pv${t.id}`);
-    pv.textContent=t.pax>0?`${t.pax}名`:'—';
-    pv.className='pxv'+(t.pax>0?' on':'');
-
-    // 指名リスト
-    [['hl','hon'],['bl','ban']].forEach(([lid,f])=>{
-      const ul=document.getElementById(`${lid}${t.id}`);ul.innerHTML='';
-      const arr=t[f];
-      if(!arr.length){
-        const p=document.createElement('span');p.className='ntag ph';p.textContent='＋ 追加';ul.appendChild(p);
+    [['hl','hon'],['bl','ban']].forEach(([lid,f]) => {
+      const ul = document.getElementById(`${lid}${t.id}`); ul.innerHTML = '';
+      const arr = t[f];
+      if (!arr.length) {
+        const p = document.createElement('span'); p.className='ntag ph'; p.textContent='＋ 追加'; ul.appendChild(p);
       } else {
-        arr.forEach(n=>{
-          const w=document.createElement('div');w.className='nwrap';
-          const tag=document.createElement('span');tag.className='ntag';tag.textContent=n;
-          applyDk(tag,n,d);  // 名札丸ごと色変え
-          const del=document.createElement('button');del.className='ndel';del.textContent='×';
-          del.addEventListener('click',e=>{e.stopPropagation();remN(t.id,f,n);});
-          w.appendChild(tag);w.appendChild(del);ul.appendChild(w);
+        arr.forEach(n => {
+          const w = document.createElement('div'); w.className='nwrap';
+          const tag = document.createElement('span'); tag.className='ntag'; tag.textContent=n;
+          applyDk(tag, n, d);
+          const del = document.createElement('button'); del.className='ndel'; del.textContent='×';
+          del.addEventListener('click', e => { e.stopPropagation(); remN(t.id,f,n); });
+          w.appendChild(tag); w.appendChild(del); ul.appendChild(w);
         });
       }
     });
   });
-  if(mst)refreshNM();
+  if (mst) refreshNM();
 }
 
-// ── TIMER LOOP ──────────────────────────────────────────
-setInterval(()=>{
-  T.forEach(t=>{
-    if(!t.run||!t.sat)return;
-    let s=t.sav-Math.floor((Date.now()-t.sat)/1000);
-    if(t.mode==='auto'&&s<=WARN&&!t.ext){
-      t.ext=true;t.sav=AEXT;t.sat=Date.now();s=AEXT;
-      const card=document.getElementById(`c${t.id}`);
-      card.classList.add('ef');setTimeout(()=>card.classList.remove('ef'),2200);
-      document.getElementById(`eb${t.id}`).style.display='inline';
+// ── TIMER LOOP ───────────────────────────────────────────────
+setInterval(() => {
+  T.forEach(t => {
+    if (!t.run || !t.sat) return;
+    let s = t.sav - Math.floor((Date.now()-t.sat)/1000);
+    if (t.mode==='auto' && s<=WARN && !t.ext) {
+      t.ext=true; t.sav=AEXT; t.sat=Date.now(); s=AEXT;
+      const card = document.getElementById(`c${t.id}`);
+      if (card) { card.classList.add('ef'); setTimeout(()=>card.classList.remove('ef'),2200); }
+      const eb = document.getElementById(`eb${t.id}`); if(eb) eb.style.display='inline';
+      scheduleSave();
     }
-    t.sec=Math.max(0,s);
+    t.sec = Math.max(0, s);
   });
   renderAll();
-},1000);
+}, 1000);
 
-// ── CLOCK ────────────────────────────────────────────────
-const tick=()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});};
-setInterval(tick,1000);tick();
+// ── CLOCK ────────────────────────────────────────────────────
+const tick = () => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+};
+setInterval(tick, 1000); tick();
 
-// ── SETTINGS PANEL ────────────────────────────────────
-let spTcVal = TC; // 卓数設定の一時値
+// ── SETTINGS PANEL ───────────────────────────────────────────
+let spTcVal = TC;
 
-function openSettings(){
-  // 卓番グリッド生成
+function openSettings() {
   buildSpTableGrid();
-  // 卓数表示
   spTcVal = T.length;
   document.getElementById('sp-tc-val').textContent = spTcVal;
   document.getElementById('sp-tc-cur').textContent = T.length;
-  // パネル表示
   document.getElementById('settings-overlay').classList.add('show');
   document.getElementById('settings-panel').classList.add('open');
 }
-
-function closeSettings(){
+function closeSettings() {
   document.getElementById('settings-overlay').classList.remove('show');
   document.getElementById('settings-panel').classList.remove('open');
 }
-
-function buildSpTableGrid(){
-  const g = document.getElementById('sp-table-grid');
-  g.innerHTML = '';
+function buildSpTableGrid() {
+  const g = document.getElementById('sp-table-grid'); g.innerHTML = '';
   T.forEach(t => {
-    const cell = document.createElement('div');
-    cell.className = 'sp-tnum-cell';
-    const lbl = document.createElement('div');
-    lbl.className = 'sp-tnum-lbl';
-    lbl.textContent = `#${t.id}`;
-    const inp = document.createElement('input');
-    inp.className = 'sp-tnum-inp';
-    inp.type = 'text';
-    inp.maxLength = 6;
-    inp.value = t.label;
-    inp.dataset.tid = t.id;
-    // リアルタイムで卓番を反映
+    const cell = document.createElement('div'); cell.className = 'sp-tnum-cell';
+    const lbl = document.createElement('div'); lbl.className='sp-tnum-lbl'; lbl.textContent=`#${t.id}`;
+    const inp = document.createElement('input'); inp.className='sp-tnum-inp'; inp.type='text'; inp.maxLength=6; inp.value=t.label; inp.dataset.tid=t.id;
     inp.addEventListener('input', () => {
-      const v = inp.value.trim();
-      if(v){
-        T[t.id-1].label = v;
-        const el = document.getElementById(`anum${t.id}`);
-        if(el) el.textContent = v;
-      }
+      const v = inp.value.trim(); if(v){ T[t.id-1].label=v; const el=document.getElementById(`anum${t.id}`); if(el) el.textContent=v; }
     });
-    inp.addEventListener('keydown', e => {
-      if(e.key === 'Enter') inp.blur();
-    });
-    cell.appendChild(lbl);
-    cell.appendChild(inp);
-    g.appendChild(cell);
+    inp.addEventListener('change', () => scheduleSave());
+    inp.addEventListener('keydown', e => { if(e.key==='Enter') inp.blur(); });
+    cell.appendChild(lbl); cell.appendChild(inp); g.appendChild(cell);
   });
 }
 
-// 卓数増減
-document.getElementById('sp-tc-m').addEventListener('click', () => {
-  if(spTcVal > 1) spTcVal--;
-  document.getElementById('sp-tc-val').textContent = spTcVal;
-});
-document.getElementById('sp-tc-p').addEventListener('click', () => {
-  if(spTcVal < 60) spTcVal++;
-  document.getElementById('sp-tc-val').textContent = spTcVal;
-});
-
-// 卓数適用
+document.getElementById('sp-tc-m').addEventListener('click', () => { if(spTcVal>1) spTcVal--; document.getElementById('sp-tc-val').textContent=spTcVal; });
+document.getElementById('sp-tc-p').addEventListener('click', () => { if(spTcVal<60) spTcVal++; document.getElementById('sp-tc-val').textContent=spTcVal; });
 document.getElementById('sp-tc-apply').addEventListener('click', () => {
-  if(!confirm(`卓数を ${spTcVal} 卓に変更します。現在のデータはすべてリセットされます。よろしいですか？`)) return;
-  // テーブル配列を再生成
+  if (!confirm(`卓数を ${spTcVal} 卓に変更します。現在のデータはすべてリセットされます。よろしいですか？`)) return;
   T.length = 0;
-  for(let i = 0; i < spTcVal; i++){
-    T.push({id:i+1,label:String(i+1),mode:'time',hon:[],ban:[],et:'',pax:0,run:false,sec:INIT,sav:INIT,sat:null,ext:false});
-  }
-  // グリッド列数を卓数に応じて調整（2列固定）
-  buildGrid();
-  buildSpTableGrid();
+  for (let i=0; i<spTcVal; i++) T.push({id:i+1,label:String(i+1),mode:'time',hon:[],ban:[],et:'',pax:0,run:false,sec:INIT,sav:INIT,sat:null,ext:false});
+  buildGrid(); buildSpTableGrid();
   document.getElementById('sp-tc-cur').textContent = T.length;
-  renderAll();
+  renderAll(); scheduleSave();
 });
-
-// 全卓リセット
 document.getElementById('sp-reset-all').addEventListener('click', () => {
-  if(!confirm('全卓のデータをリセットします。よろしいですか？')) return;
+  if (!confirm('全卓のデータをリセットします。よろしいですか？')) return;
   T.forEach(t => {
     Object.assign(t, {run:false,sec:INIT,sav:INIT,sat:null,ext:false,hon:[],ban:[],et:'',pax:0});
-    const pb = document.getElementById(`pb${t.id}`);
-    if(pb) pb.textContent = '▶';
-    const eb = document.getElementById(`eb${t.id}`);
-    if(eb) eb.style.display = 'none';
+    const pb=document.getElementById(`pb${t.id}`); if(pb) pb.textContent='▶';
+    const eb=document.getElementById(`eb${t.id}`); if(eb) eb.style.display='none';
   });
-  renderAll();
+  renderAll(); scheduleSave();
 });
-
-buildCasts();buildGrid();renderAll();
 
 document.getElementById('btn-settings').addEventListener('click', openSettings);
 document.getElementById('sp-close').addEventListener('click', closeSettings);
