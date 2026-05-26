@@ -433,6 +433,30 @@ body.list-mode .list-et-col.empty { color: var(--muted); }
 .sp-btn-danger{background:#fff;border:1px solid var(--dead-b);border-radius:2px;color:var(--dead-b);cursor:pointer;font-size:.65rem;padding:8px;font-weight:700;width:100%;text-align:center;letter-spacing:.05em;}
 .sp-btn-danger:hover{background:#fde8e8;}
 
+/* ── STATS BAR ── */
+#stats-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:0 8px;background:#1a1a1a;
+  flex-shrink:0;height:22px;border-bottom:1px solid #333;
+  font-family:var(--mono);font-size:.58rem;
+}
+.stat-item{display:flex;align-items:center;gap:4px;color:#888;}
+.stat-val{color:#fff;font-weight:700;font-size:.66rem;}
+.stat-sep{color:#333;font-size:.7rem;}
+
+/* ── CAST 出勤状態 ── */
+.chip{position:relative;}
+.chip.on-duty{
+  background:#111;border-color:#16a34a;color:#fff;
+  box-shadow:inset 0 0 0 1px #16a34a;
+}
+.chip.on-duty::after{
+  content:'●';position:absolute;top:1px;right:2px;
+  font-size:.38rem;color:#16a34a;line-height:1;
+}
+/* キャストパネルヘッダーに出勤数表示 */
+#cp-duty{font-size:.46rem;color:#16a34a;font-family:var(--mono);font-weight:700;letter-spacing:.05em;}
+
 /* ── LOGIN SCREEN ── */
 #login-screen{
   position:fixed;inset:0;background:#0a0a0a;
@@ -540,10 +564,20 @@ body.list-mode .list-et-col.empty { color: var(--muted); }
   </div>
 </div>
 
+<!-- 統計バー -->
+<div id="stats-bar">
+  <div class="stat-item">🪑 来店<span class="stat-val" id="st-groups">0</span>組</div>
+  <div class="stat-sep">|</div>
+  <div class="stat-item">👥 合計<span class="stat-val" id="st-pax">0</span>名</div>
+  <div class="stat-sep">|</div>
+  <div class="stat-item">💃 出勤<span class="stat-val" id="st-cast">0</span>名</div>
+</div>
+
 <div id="body">
   <div id="cp">
     <div id="cp-hdr">
       <span id="cp-title">CAST</span>
+      <span id="cp-duty">0出勤</span>
       <button id="btn-addcast">＋</button>
     </div>
     <div id="cast-list"></div>
@@ -682,12 +716,14 @@ try {
 // ── 定数 ──────────────────────────────────────────────────────
 const TC=28, INIT=3600, WARN=600, AEXT=4200, DN=24, PMAX=10;
 
+// casts は { name, duty } のオブジェクト配列
+// duty: true=出勤中, false=未出勤
 let casts = [
   "さくら","ひな","れい","みゆ","なな","あおい","ゆき","りん",
   "まい","こと","るな","すず","みお","はな","ちか","のあ",
   "えま","かな","らん","しの","あや","ゆな","みか","ねね",
   "りか","もも","ゆい","あみ","はる","せな",
-];
+].map(name => ({name, duty:false}));
 
 const T = Array.from({length:TC}, (_,i) => ({
   id:i+1, label:String(i+1), mode:'time', hon:[], ban:[],
@@ -695,27 +731,18 @@ const T = Array.from({length:TC}, (_,i) => ({
 }));
 
 let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
-let unsubscribeSnapshot=null; // onSnapshotリスナー解除用
-let localWriteVersion=0;      // 自端末の書き込みバージョン番号
-let remoteVersion=0;          // 最後に受信したFirestoreのバージョン
-let lastSavedHash='';         // 差分チェック用（無駄なwrite防止）
+let unsubscribeSnapshot=null;
+let localWriteVersion=0;
+let remoteVersion=0;
+let lastSavedHash='';
 
 // ════════════════════════════════════════════════════════════════
 //  Firebase 同期  ―  完全同期 + 無料枠最適化
-//
-//  【設計方針】
+//  reads ≒243/日, writes ≒80/日 (3端末・8h・操作10回/h想定)
 //  ① onSnapshot でリアルタイム受信（変更時のみ 1read 消費）
-//  ② バージョン番号で自端末の折り返し通知を識別してスキップ
-//     ※ isSavingフラグより確実。タイミング依存がない。
-//  ③ 受信時はタイマー動作中でも「run/sat/sav」を含む全フィールドを上書き
-//     → リセット・停止が必ず別端末に反映される
-//  ④ タイマーはsat（開始絶対時刻）をmsで保存 → 各端末が独立計算
-//     → 毎秒saveは不要、操作時のみsave
-//  ⑤ デバウンス1秒 + 差分チェックでwriteを最小化
-//
-//  【消費量の目安（3端末・営業8h・操作10回/h）】
-//    reads : 接続3 + 変更通知240 ≒ 243 / 日  (上限 50,000)
-//    writes: 操作80              ≒  80 / 日  (上限 20,000)
+//  ② バージョン番号で自端末の折り返し通知をスキップ
+//  ③ 全フィールド上書き → リセット・停止が必ず別端末に反映
+//  ④ デバウンス1秒 + 差分チェックでwriteを最小化
 // ════════════════════════════════════════════════════════════════
 
 function setSyncState(state) {
@@ -724,16 +751,24 @@ function setSyncState(state) {
   el.title = {ok:'同期済', err:'同期エラー', busy:'同期中...'}[state] || '';
 }
 
+// ── 統計バー更新 ─────────────────────────────────────────────
+function updateStats() {
+  const active = T.filter(t => t.run || t.et);
+  const groups = active.length;
+  const pax    = active.reduce((s, t) => s + (t.pax || 0), 0);
+  const duty   = casts.filter(c => c.duty).length;
+  document.getElementById('st-groups').textContent = groups;
+  document.getElementById('st-pax').textContent    = pax;
+  document.getElementById('st-cast').textContent   = duty;
+  document.getElementById('cp-duty').textContent   = duty + '出勤';
+}
+
 // ── シリアライズ ─────────────────────────────────────────────
-// sat はミリ秒(ms)のまま保存。各端末が Date.now()-sat で経過秒を計算。
 function getSerializableT() {
   return T.map(t => ({
     id:t.id, label:t.label, mode:t.mode,
     hon:[...t.hon], ban:[...t.ban],
-    et:t.et, pax:t.pax,
-    run:t.run,
-    // 稼働中は「現時点での残り秒」を sav として保存 + sat=保存時刻
-    // 停止中は sav をそのまま保存、sat=null
+    et:t.et, pax:t.pax, run:t.run,
     sav: t.run ? Math.max(0, t.sav - Math.floor((Date.now() - t.sat) / 1000)) : t.sav,
     sat: t.run ? Date.now() : null,
     ext:t.ext,
@@ -753,19 +788,19 @@ function stateHash() {
 async function saveToFirestore() {
   if (!currentUser || !db) return;
   const hash = stateHash();
-  if (hash === lastSavedHash) return; // 内容変化なし → スキップ
+  if (hash === lastSavedHash) return;
   localWriteVersion++;
   const myVersion = localWriteVersion;
   setSyncState('busy');
   try {
     await setDoc(doc(db, 'stores', currentUser), {
       tables:    getSerializableT(),
-      casts:     [...casts],
-      ver:       myVersion,        // バージョン番号を一緒に保存
+      casts:     casts,
+      ver:       myVersion,
       updatedAt: serverTimestamp(),
     });
     lastSavedHash = hash;
-    remoteVersion = myVersion;     // 自分のwriteをremoteVersionに記録
+    remoteVersion = myVersion;
     setSyncState('ok');
   } catch(e) {
     console.error('Save error:', e);
@@ -775,22 +810,21 @@ async function saveToFirestore() {
 
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveToFirestore, 1000); // デバウンス1秒
+  saveTimer = setTimeout(saveToFirestore, 1000);
 }
 
 // ── リモートデータの適用 ─────────────────────────────────────
-// タイマー動作中かどうかに関わらず全フィールドを上書きする
-// （リセット・停止も必ず反映させるため）
 function applyRemoteData(data) {
-  if (data.casts && Array.isArray(data.casts)) casts = [...data.casts];
+  if (data.casts && Array.isArray(data.casts)) {
+    casts = data.casts.map(c =>
+      typeof c === 'string' ? {name:c, duty:false} : {name:c.name||'', duty:!!c.duty}
+    );
+  }
   if (data.tables && Array.isArray(data.tables)) {
     const needRebuild = data.tables.length !== T.length;
     if (needRebuild) T.length = 0;
     data.tables.forEach((rt, i) => {
-      // sat はmsで保存されている前提。旧データ（秒単位）も自動判定。
-      const satMs = rt.sat
-        ? (rt.sat < 1e12 ? rt.sat * 1000 : rt.sat)
-        : null;
+      const satMs = rt.sat ? (rt.sat < 1e12 ? rt.sat * 1000 : rt.sat) : null;
       const elapsed = rt.run && satMs ? Math.floor((Date.now() - satMs) / 1000) : 0;
       const entry = {
         id:    rt.id,
@@ -803,19 +837,14 @@ function applyRemoteData(data) {
         run:   rt.run   || false,
         sec:   rt.run ? Math.max(0, (rt.sav || INIT) - elapsed) : (rt.sav || INIT),
         sav:   rt.sav   || INIT,
-        sat:   rt.run && satMs ? satMs : null, // ローカルもmsで統一
+        sat:   rt.run && satMs ? satMs : null,
         ext:   rt.ext   || false,
       };
-      if (needRebuild) {
-        T.push(entry);
-      } else {
-        // 全フィールド上書き（run中でもリセット・停止を確実に反映）
-        Object.assign(T[i], entry);
-      }
+      if (needRebuild) { T.push(entry); } else { Object.assign(T[i], entry); }
     });
     if (needRebuild) buildGrid();
   }
-  buildCasts(); renderAll();
+  buildCasts(); renderAll(); updateStats();
 }
 
 // ── onSnapshot リスナー開始 ──────────────────────────────────
@@ -827,21 +856,15 @@ function startRealtimeSync(userId) {
     (snap) => {
       if (!snap.exists()) { setSyncState('ok'); return; }
       const data = snap.data();
-      // バージョン番号で自端末の折り返し通知を確実にスキップ
       if (data.ver !== undefined && data.ver === remoteVersion) {
-        setSyncState('ok');
-        return;
+        setSyncState('ok'); return;
       }
       remoteVersion = data.ver || 0;
       applyRemoteData(data);
-      // 受信後に自端末のhashを更新（受信データで再saveしないよう）
       lastSavedHash = stateHash();
       setSyncState('ok');
     },
-    (err) => {
-      console.error('Sync error:', err);
-      setSyncState('err');
-    }
+    (err) => { console.error('Sync error:', err); setSyncState('err'); }
   );
 }
 
@@ -1004,19 +1027,54 @@ document.addEventListener('touchcancel',tEnd, {passive:false});
 // ── BUILD CASTS ───────────────────────────────────────────────
 function buildCasts() {
   const l = document.getElementById('cast-list'); l.innerHTML = '';
-  casts.forEach(n => {
+  casts.forEach(c => {
     const e = document.createElement('div');
-    e.className = 'chip'; e.textContent = n; e.dataset.name = n;
-    e.addEventListener('touchstart', ev => tStart(ev, n, e), {passive:false});
+    e.className = 'chip' + (c.duty ? ' on-duty' : '');
+    e.textContent = c.name;
+    e.dataset.name = c.name;
+    e.title = c.duty ? `${c.name}（出勤中）` : `${c.name}（未出勤）`;
+
+    // 長押し or ダブルタップ → 出勤トグル
+    let pressTimer = null;
+    e.addEventListener('touchstart', ev => {
+      pressTimer = setTimeout(() => {
+        pressTimer = null;
+        toggleDuty(c.name);
+        ev.preventDefault();
+      }, 500);
+    }, {passive:false});
+    e.addEventListener('touchend', ev => {
+      if (pressTimer) {
+        // 短タップ → ドラッグ開始（出勤トグルしない）
+        clearTimeout(pressTimer); pressTimer = null;
+        tStart(ev, c.name, e);
+      }
+    }, {passive:false});
+    e.addEventListener('touchcancel', () => { clearTimeout(pressTimer); pressTimer = null; });
+
+    // PC: ドラッグ
     e.draggable = true;
     e.addEventListener('dragstart', ev => {
-      ev.dataTransfer.setData('text/plain', n);
+      ev.dataTransfer.setData('text/plain', c.name);
       ev.dataTransfer.effectAllowed = 'copy';
       setTimeout(() => e.classList.add('dragging-src'), 0);
     });
     e.addEventListener('dragend', () => e.classList.remove('dragging-src'));
+
+    // PC: 右クリック → 出勤トグル
+    e.addEventListener('contextmenu', ev => { ev.preventDefault(); toggleDuty(c.name); });
+
     l.appendChild(e);
   });
+  updateStats();
+}
+
+function toggleDuty(name) {
+  const c = casts.find(x => x.name === name);
+  if (!c) return;
+  c.duty = !c.duty;
+  buildCasts();
+  scheduleSave();
 }
 
 // ── BUILD GRID ────────────────────────────────────────────────
@@ -1189,10 +1247,12 @@ function refreshNM() {
     sd.appendChild(tag);
   });
   const mg = document.getElementById('mgrid'); mg.innerHTML = '';
-  casts.forEach(n => {
+  casts.forEach(c => {
+    const n = c.name;
     const isSel = mst.sel.includes(n);
     const b = document.createElement('button');
-    b.className = 'mc'+(isSel?' sel':''); b.textContent = n; b.dataset.name = n;
+    b.className = 'mc'+(isSel?' sel':'')+(c.duty?' on-duty':'');
+    b.textContent = n; b.dataset.name = n;
     if (!isSel) applyDk(b, n, d);
     b.addEventListener('click', () => {
       mst.sel = mst.sel.includes(n) ? mst.sel.filter(x=>x!==n) : [...mst.sel,n]; refreshNM();
@@ -1219,14 +1279,15 @@ document.getElementById('acc').addEventListener('click', addCast);
 document.getElementById('nci').addEventListener('keydown', e => { if(e.key==='Enter') addCast(); });
 function addCast() {
   const inp = document.getElementById('nci'); const n = inp.value.trim();
-  if (!n || casts.includes(n)) { inp.style.borderColor='#dc2626'; setTimeout(()=>inp.style.borderColor='',800); return; }
-  casts.push(n); buildCasts(); renderAll(); scheduleSave();
+  if (!n || casts.some(c => c.name === n)) { inp.style.borderColor='#dc2626'; setTimeout(()=>inp.style.borderColor='',800); return; }
+  casts.push({name:n, duty:false}); buildCasts(); renderAll(); scheduleSave();
   document.getElementById('ac-mo').classList.remove('show');
 }
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderAll() {
   const d = getDupes();
+  // chipの重複カラー（on-dutyクラスは維持）
   document.querySelectorAll('.chip').forEach(e => applyDk(e, e.dataset.name, d));
   T.forEach(t => {
     const card = document.getElementById(`c${t.id}`); if (!card) return;
@@ -1291,6 +1352,7 @@ setInterval(() => {
     t.sec = Math.max(0, s);
   });
   renderAll();
+  updateStats();
 }, 1000);
 
 // ── CLOCK ────────────────────────────────────────────────────
