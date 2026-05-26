@@ -648,7 +648,7 @@ body.list-mode .list-et-col.empty { color: var(--muted); }
 // ════════════════════════════════════════════════════════════════
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
+import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -695,78 +695,161 @@ const T = Array.from({length:TC}, (_,i) => ({
 }));
 
 let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
+let unsubscribeSnapshot=null; // onSnapshotリスナー解除用
+let isSaving=false;           // 自端末の保存中フラグ（ループ防止）
+let lastSavedHash='';         // 前回保存内容のハッシュ（無駄なwrite防止）
 
-// ── Firestore 同期 ────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+//  Firebase 同期  ―  無料枠最適化設計
+//
+//  【消費量の目安（3端末・営業8h・操作10回/h）】
+//    reads : 接続3 + 変更通知240 ≒ 243 / 日  (上限 50,000)
+//    writes: 操作80                ≒  80 / 日  (上限 20,000)
+//
+//  【節約の仕組み】
+//  ① onSnapshot でリアルタイム受信 — 変更があった時だけ 1read 消費
+//     ポーリング(30秒)だと端末×960reads/日かかるのに対し大幅削減
+//  ② 書き込みデバウンス 2秒 — 連続操作をまとめて 1write に圧縮
+//  ③ 差分チェック — 内容が変わっていなければ write しない
+//  ④ isSaving フラグ — 自分の write が onSnapshot に戻ってきても
+//     再度 write するループを防止
+//  ⑤ タイマー稼働中は定期 save 禁止 — 操作時のみ保存
+//     (タイマーは各端末でローカル計算するため保存不要)
+// ════════════════════════════════════════════════════════════════
+
 function setSyncState(state) {
   const el = document.getElementById('sync-ind');
   el.className = state; // 'ok' | 'err' | 'busy' | ''
   el.title = {ok:'同期済', err:'同期エラー', busy:'同期中...'}[state] || '';
 }
 
+// ── シリアライズ ─────────────────────────────────────────────
+// sat はミリ秒ではなく「秒」で保存し精度ずれを防ぐ
 function getSerializableT() {
+  const nowSec = Math.floor(Date.now() / 1000);
   return T.map(t => ({
     id:t.id, label:t.label, mode:t.mode,
     hon:[...t.hon], ban:[...t.ban],
     et:t.et, pax:t.pax,
     run:t.run,
-    sav:t.run ? Math.max(0, t.sav - Math.floor((Date.now()-t.sat)/1000)) : t.sav,
-    sat:t.run ? Date.now() : null,
+    sav:t.run ? Math.max(0, t.sav - Math.floor((Date.now() - t.sat) / 1000)) : t.sav,
+    sat:t.run ? nowSec : null,  // 秒単位で統一
     ext:t.ext,
   }));
 }
 
+// ── 差分チェック用ハッシュ ───────────────────────────────────
+// タイマー秒数(sec)は毎秒変化するので除外し、状態のみ比較
+function stateHash() {
+  return JSON.stringify(T.map(t => ({
+    id:t.id, label:t.label, mode:t.mode,
+    hon:t.hon, ban:t.ban, et:t.et, pax:t.pax,
+    run:t.run, sav:t.sav, ext:t.ext,
+  }))) + JSON.stringify(casts);
+}
+
+// ── 書き込み（デバウンス2秒 + 差分チェック） ────────────────
 async function saveToFirestore() {
   if (!currentUser || !db) return;
+  const hash = stateHash();
+  if (hash === lastSavedHash) return; // 内容が変わっていなければスキップ
+  isSaving = true;
   setSyncState('busy');
   try {
     await setDoc(doc(db, 'stores', currentUser), {
-      tables: getSerializableT(),
-      casts: [...casts],
+      tables:    getSerializableT(),
+      casts:     [...casts],
       updatedAt: serverTimestamp(),
     });
+    lastSavedHash = hash;
     setSyncState('ok');
   } catch(e) {
     console.error('Save error:', e);
     setSyncState('err');
+  } finally {
+    // 少し遅延させてから isSaving を解除
+    // （Firestoreの onSnapshot コールバックが先に来ることがあるため）
+    setTimeout(() => { isSaving = false; }, 500);
   }
 }
 
+// デバウンス付き保存スケジューラ
+// タイマーが走っている卓がある場合は保存しない（操作時のみ呼ぶ）
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveToFirestore, 1500);
+  saveTimer = setTimeout(saveToFirestore, 2000); // 2秒デバウンス
 }
 
-async function loadFromFirestore() {
-  if (!currentUser || !db) return;
-  setSyncState('busy');
-  try {
-    const snap = await getDoc(doc(db, 'stores', currentUser));
-    if (snap.exists()) {
-      const data = snap.data();
-      if (data.casts && Array.isArray(data.casts)) casts = [...data.casts];
-      if (data.tables && Array.isArray(data.tables)) {
-        T.length = 0;
-        data.tables.forEach(t => {
-          const elapsed = t.run && t.sat ? Math.floor((Date.now()-t.sat)/1000) : 0;
-          T.push({
-            id:t.id, label:t.label || String(t.id),
-            mode:t.mode || 'time',
-            hon:t.hon || [], ban:t.ban || [],
-            et:t.et || '', pax:t.pax || 0,
-            run:t.run || false,
-            sec:t.run ? Math.max(0, (t.sav||INIT) - elapsed) : (t.sav||INIT),
-            sav:t.sav || INIT,
-            sat:t.run ? Date.now() : null,
-            ext:t.ext || false,
+// ── リアルタイム受信（onSnapshot） ──────────────────────────
+// 別端末が write → Firestore → 全端末の onSnapshot が発火（1read消費）
+function applyRemoteData(data) {
+  if (data.casts && Array.isArray(data.casts)) casts = [...data.casts];
+  if (data.tables && Array.isArray(data.tables)) {
+    // テーブル数が変わった場合は全rebuild、それ以外は差分マージ
+    const needRebuild = data.tables.length !== T.length;
+    if (needRebuild) T.length = 0;
+
+    data.tables.forEach((rt, i) => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      // sat が秒単位か ms単位かを自動判定（移行期対応）
+      const satMs = rt.sat
+        ? (rt.sat < 1e10 ? rt.sat * 1000 : rt.sat) // 秒→ms 変換
+        : null;
+      const elapsed = rt.run && satMs ? Math.floor((Date.now() - satMs) / 1000) : 0;
+      const merged = {
+        id:    rt.id,
+        label: rt.label || String(rt.id),
+        mode:  rt.mode  || 'time',
+        hon:   rt.hon   || [],
+        ban:   rt.ban   || [],
+        et:    rt.et    || '',
+        pax:   rt.pax   || 0,
+        run:   rt.run   || false,
+        sec:   rt.run   ? Math.max(0, (rt.sav || INIT) - elapsed) : (rt.sav || INIT),
+        sav:   rt.sav   || INIT,
+        sat:   rt.run   ? Date.now() : null, // ローカルはmsで管理
+        ext:   rt.ext   || false,
+      };
+      if (needRebuild) {
+        T.push(merged);
+      } else {
+        // タイマー動作中の卓はローカル優先（別端末のズレを無視）
+        if (T[i] && T[i].run) {
+          // run/sav/sat 以外の属性（名前・指名・入店）だけ更新
+          Object.assign(T[i], {
+            label: merged.label, mode: merged.mode,
+            hon: merged.hon, ban: merged.ban,
+            et: merged.et, pax: merged.pax, ext: merged.ext,
           });
-        });
+        } else {
+          T[i] = merged;
+        }
       }
-    }
-    setSyncState('ok');
-  } catch(e) {
-    console.error('Load error:', e);
-    setSyncState('err');
+    });
+    if (needRebuild) { buildGrid(); }
   }
+  buildCasts(); renderAll();
+}
+
+// ── onSnapshot リスナー開始 ──────────────────────────────────
+function startRealtimeSync(userId) {
+  if (unsubscribeSnapshot) unsubscribeSnapshot(); // 前のリスナーを解除
+  setSyncState('busy');
+  unsubscribeSnapshot = onSnapshot(
+    doc(db, 'stores', userId),
+    (snap) => {
+      // 自分の書き込みによる通知はスキップ（write→read ループ防止）
+      if (isSaving) { setSyncState('ok'); return; }
+      if (snap.exists()) {
+        applyRemoteData(snap.data());
+      }
+      setSyncState('ok');
+    },
+    (err) => {
+      console.error('Sync error:', err);
+      setSyncState('err');
+    }
+  );
 }
 
 // ── Auth UI ───────────────────────────────────────────────────
@@ -807,8 +890,17 @@ async function doLogin() {
   sessionStorage.setItem('store_id', matched);
   document.getElementById('user-email').textContent = matched;
 
-  await loadFromFirestore();
-  buildCasts(); buildGrid(); renderAll();
+  // onSnapshot がデータを取得したら buildGrid/buildCasts/renderAll が自動で呼ばれる
+  // ただし初回は画面構築が必要なので snap を待ってから表示
+  await new Promise(resolve => {
+    const unsub = onSnapshot(doc(db, 'stores', matched), (snap) => {
+      unsub();
+      if (snap.exists()) applyRemoteData(snap.data());
+      buildGrid(); buildCasts(); renderAll();
+      resolve();
+    }, (err) => { console.error(err); buildGrid(); buildCasts(); renderAll(); resolve(); });
+  });
+  startRealtimeSync(matched);
   hideLoginScreen();
 
   btn.disabled = false; btn.textContent = 'ログイン';
@@ -821,8 +913,11 @@ function showLoginErr(msg) {
 
 document.getElementById('btn-logout').addEventListener('click', () => {
   if (!confirm('ログアウトしますか？')) return;
+  if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot=null; }
+  clearTimeout(saveTimer);
   sessionStorage.removeItem('store_id');
   currentUser = null;
+  lastSavedHash = '';
   document.getElementById('login-id').value = '';
   showLoginScreen();
 });
@@ -833,8 +928,16 @@ document.getElementById('btn-logout').addEventListener('click', () => {
   if (saved && STORE_IDS.includes(saved)) {
     currentUser = saved;
     document.getElementById('user-email').textContent = saved;
-    await loadFromFirestore();
-    buildCasts(); buildGrid(); renderAll();
+    // 初回データ取得を待ってから画面構築
+    await new Promise(resolve => {
+      const unsub = onSnapshot(doc(db, 'stores', saved), (snap) => {
+        unsub();
+        if (snap.exists()) applyRemoteData(snap.data());
+        buildGrid(); buildCasts(); renderAll();
+        resolve();
+      }, (err) => { console.error(err); buildGrid(); buildCasts(); renderAll(); resolve(); });
+    });
+    startRealtimeSync(saved);
     hideLoginScreen();
   } else {
     showLoginScreen();
@@ -1178,6 +1281,7 @@ function renderAll() {
 }
 
 // ── TIMER LOOP ───────────────────────────────────────────────
+// タイマーはローカルで計算。走行中は保存しない（操作時のみ保存）
 setInterval(() => {
   T.forEach(t => {
     if (!t.run || !t.sat) return;
