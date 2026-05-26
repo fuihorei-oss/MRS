@@ -312,7 +312,89 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 #btn-logout{border-color:#6b2323;}
 #btn-logout:hover{background:#dc2626;border-color:#dc2626;color:#fff;}
 
-/* ── SETTINGS PANEL ── */
+/* ── LIST MODE ── */
+#btn-mode{
+  background:#1d4ed8;border:1px solid #1e3a8a;border-radius:2px;
+  color:#fff;cursor:pointer;font-size:.56rem;font-weight:700;
+  letter-spacing:.08em;padding:3px 8px;font-family:var(--mono);
+  white-space:nowrap;flex-shrink:0;
+  transition:background .15s;
+}
+#btn-mode.list-active{background:#16a34a;border-color:#14532d;}
+
+/* listモード時: キャストパネル非表示 */
+body.list-mode #cp { display:none; }
+
+/* listモード時: グリッドを1列横長 */
+body.list-mode #grid {
+  grid-template-columns: 1fr;
+  gap: 2px;
+}
+
+/* listモード時: カードを横長・コンパクト */
+body.list-mode .card {
+  min-height: 36px;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* listモード時: 不要なセクションを非表示 */
+body.list-mode .sec.sb,
+body.list-mode .a-mid,
+body.list-mode .a-pax,
+body.list-mode .tbtns,
+body.list-mode .slb {
+  display: none !important;
+}
+
+/* listモード時: 卓番号セクション */
+body.list-mode .sa {
+  width: 36px;
+  padding: 2px;
+}
+body.list-mode .a-num {
+  font-size: .78rem;
+  pointer-events: none;
+}
+
+/* listモード時: タイマーセクション */
+body.list-mode .sc {
+  width: 70px;
+  padding: 2px 4px;
+}
+body.list-mode .tval {
+  font-size: .82rem;
+}
+
+/* listモード時: 名前タグセクション */
+body.list-mode .sd,
+body.list-mode .se {
+  padding: 2px 4px;
+}
+body.list-mode .ntag {
+  font-size: .52rem;
+  padding: 1px 4px;
+  pointer-events: none;
+}
+body.list-mode .ndel { display: none; }
+body.list-mode .ntag.ph { display: none; }
+
+/* listモード時: 入店時刻セクション（sbの代わりに小さく表示）*/
+.list-et-col {
+  display: none;
+  flex-shrink: 0;
+  width: 44px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: .58rem;
+  color: var(--text);
+  padding: 0 3px;
+  border-right: 1px solid var(--border2);
+}
+body.list-mode .list-et-col { display: flex; align-items: center; justify-content: center; }
+body.list-mode .list-et-col.empty { color: var(--muted); }
+
+
 #settings-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;display:none;}
 #settings-overlay.show{display:block;}
 #settings-panel{
@@ -452,6 +534,7 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
     <div id="sync-ind" title="同期状態"></div>
     <span id="user-email"></span>
     <span id="clock"></span>
+    <button id="btn-mode">📋 LIST</button>
     <button id="btn-settings">⚙ SETTINGS</button>
     <button id="btn-logout">ログアウト</button>
   </div>
@@ -862,6 +945,7 @@ function buildGrid() {
         <button class="cbtn${t.et?' done':''}" id="cb${t.id}">${t.et?'✔ 入店済':'入店'}</button>
         <span class="edisp${t.et?'':' empty'}" id="et${t.id}">${t.et||'--:--'}</span>
       </div>
+      <span class="list-et-col${t.et?'':' empty'}" id="let${t.id}">${t.et||'--:--'}</span>
       <div class="sec sc">
         <span class="slb">タイマー</span>
         <span class="tval" id="tv${t.id}">${fmt(t.sec)}</span>
@@ -1067,6 +1151,9 @@ function renderAll() {
     const et = document.getElementById(`et${t.id}`);
     et.textContent = t.et||'--:--'; et.className = 'edisp'+(t.et?'':' empty');
 
+    const let_ = document.getElementById(`let${t.id}`);
+    if (let_) { let_.textContent = t.et||'--:--'; let_.className = 'list-et-col'+(t.et?'':' empty'); }
+
     const pv = document.getElementById(`pv${t.id}`);
     pv.textContent = t.pax>0?`${t.pax}名`:'—'; pv.className = 'pxv'+(t.pax>0?' on':'');
 
@@ -1167,6 +1254,24 @@ document.getElementById('sp-reset-all').addEventListener('click', () => {
 document.getElementById('btn-settings').addEventListener('click', openSettings);
 document.getElementById('sp-close').addEventListener('click', closeSettings);
 document.getElementById('settings-overlay').addEventListener('click', closeSettings);
+
+// ── LIST / ADMIN モード切替 ───────────────────────────────────
+let isListMode = false;
+document.getElementById('btn-mode').addEventListener('click', () => {
+  isListMode = !isListMode;
+  document.body.classList.toggle('list-mode', isListMode);
+  const btn = document.getElementById('btn-mode');
+  btn.textContent = isListMode ? '⚙ ADMIN' : '📋 LIST';
+  btn.classList.toggle('list-active', isListMode);
+  // listモード時はモーダル・操作を無効化
+  document.querySelectorAll('.card').forEach(card => {
+    card.style.pointerEvents = isListMode ? 'none' : '';
+  });
+  // キャストパネルのドラッグも無効化
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.draggable = !isListMode;
+  });
+});
 </script>
 </body>
 </html>
