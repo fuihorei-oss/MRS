@@ -68,10 +68,13 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 .nav-tab{padding:0 14px;height:28px;font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;color:#666;background:transparent;border:none;border-right:1px solid #333;cursor:pointer;transition:color .15s,background .15s;white-space:nowrap;}
 .nav-tab:hover{color:#ccc;}
 .nav-tab.active{color:#fff;background:#111;border-bottom:2px solid #fff;margin-bottom:-2px;}
+#manage-tab{margin-left:auto;background:#1a0505;color:#f87171;border-left:1px solid #333;border-right:none;}
+#manage-tab:hover{color:#fca5a5;background:#2a0808;}
+#manage-tab.active{color:#fca5a5;background:#2a0808;border-bottom:2px solid #f87171;margin-bottom:-2px;}
 
 #body{display:flex;flex:1;overflow:hidden;}
 
-/* CAST PANEL - 出勤中のみ表示 */
+/* CAST PANEL */
 #cp{width:72px;flex-shrink:0;background:var(--panel);border-right:2px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 #cp-hdr{display:flex;align-items:center;justify-content:space-between;padding:4px 5px;background:#222;border-bottom:1px solid var(--border);flex-shrink:0;}
 #cp-title{font-size:.5rem;letter-spacing:.15em;color:#bbb;font-weight:700;font-family:var(--mono);}
@@ -136,17 +139,19 @@ body{display:flex;flex-direction:column;font-family:var(--sans);color:var(--text
 
 /* LIST MODE */
 body.list-mode #cp{display:none;}
-body.list-mode #grid{grid-template-columns:1fr;gap:2px;}
-body.list-mode .card{min-height:36px;}
+body.list-mode #grid{grid-template-columns:1fr;gap:0px;}
+body.list-mode #main{overflow:hidden!important;padding:2px;}
+body.list-mode .card{min-height:unset;height:var(--list-row-h,36px);max-height:var(--list-row-h,36px);overflow:hidden;}
 body.list-mode .sec.sb,body.list-mode .a-mid,body.list-mode .a-pax,body.list-mode .tbtns,body.list-mode .slb{display:none!important;}
-body.list-mode .sa{width:36px;padding:2px;}
-body.list-mode .a-num{font-size:.78rem;pointer-events:none;}
-body.list-mode .sc{width:70px;padding:2px 4px;}
-body.list-mode .tval{font-size:.82rem;}
+body.list-mode .sa{width:calc(36px * var(--list-scale,1));padding:2px;}
+body.list-mode .a-num{font-size:calc(0.78rem * var(--list-scale,1));pointer-events:none;}
+body.list-mode .sc{width:calc(70px * var(--list-scale,1));padding:2px 4px;}
+body.list-mode .tval{font-size:calc(0.82rem * var(--list-scale,1));}
 body.list-mode .sd,body.list-mode .se{padding:2px 4px;}
-body.list-mode .ntag{font-size:.52rem;padding:1px 4px;pointer-events:none;}
+body.list-mode .ntag{font-size:calc(0.52rem * var(--list-scale,1));padding:1px 4px;pointer-events:none;}
 body.list-mode .ndel{display:none;}
 body.list-mode .ntag.ph{display:none;}
+body.list-mode .list-et-col{font-size:calc(0.58rem * var(--list-scale,1));width:calc(44px * var(--list-scale,1));}
 .list-et-col{display:none;flex-shrink:0;width:44px;text-align:center;font-family:var(--mono);font-size:.58rem;color:var(--text);padding:0 3px;border-right:1px solid var(--border2);}
 body.list-mode .list-et-col{display:flex;align-items:center;justify-content:center;}
 body.list-mode .list-et-col.empty{color:var(--muted);}
@@ -165,6 +170,29 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
 .duty-card.on .duty-name{color:#14532d;}
 .duty-badge{font-size:.5rem;font-family:var(--mono);padding:2px 6px;border-radius:1px;border:1px solid var(--border2);background:#f0f0f0;color:var(--muted);}
 .duty-card.on .duty-badge{background:#bbf7d0;border-color:#16a34a;color:#14532d;}
+
+/* 管理者ページ */
+#manage-page{flex:1;overflow-y:auto;padding:10px;display:none;flex-direction:column;gap:10px;}
+#manage-page.active{display:flex;}
+#manage-page-hdr{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-bottom:6px;border-bottom:2px solid #dc2626;}
+#manage-page-title{font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.15em;color:#dc2626;}
+#manage-admin-badge{font-size:.48rem;background:#dc2626;color:#fff;padding:2px 6px;border-radius:1px;font-family:var(--mono);font-weight:700;}
+.manage-section{background:#fff;border:1px solid var(--border);border-radius:3px;padding:12px;display:flex;flex-direction:column;gap:8px;}
+.manage-section-title{font-size:.62rem;font-weight:700;color:#111;border-bottom:1px solid #eee;padding-bottom:4px;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);}
+#manage-email-list{display:flex;flex-direction:column;gap:4px;min-height:32px;}
+.manage-email-row{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:#f8f8f8;border:1px solid var(--border2);border-radius:2px;}
+.manage-email-text{font-size:.65rem;font-family:var(--mono);color:var(--text);}
+.manage-del-btn{background:#fff;border:1px solid var(--dead-b);color:var(--dead-b);border-radius:2px;cursor:pointer;font-size:.55rem;padding:2px 7px;font-weight:700;}
+.manage-del-btn:hover{background:#fde8e8;}
+.manage-add-row{display:flex;gap:6px;}
+.manage-add-inp{flex:1;background:#fff;border:1px solid var(--border);border-radius:2px;padding:7px;font-size:.7rem;font-family:var(--mono);outline:none;color:var(--text);user-select:text;}
+.manage-add-inp:focus{border-color:#333;}
+.manage-add-btn{background:#111;border:1px solid #000;border-radius:2px;color:#fff;cursor:pointer;font-size:.65rem;padding:7px 12px;font-weight:700;white-space:nowrap;}
+.manage-add-btn:hover{background:#333;}
+.manage-empty{font-size:.6rem;color:var(--muted);text-align:center;padding:12px;font-family:var(--mono);}
+.manage-info-row{display:flex;align-items:center;gap:6px;font-size:.6rem;color:var(--muted);line-height:1.9;font-family:var(--mono);}
+.manage-info-ok{color:#16a34a;font-weight:700;}
+.manage-info-warn{color:#d97706;font-weight:700;}
 
 /* MODALS */
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:500;}
@@ -279,8 +307,6 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
     <div id="login-sub">Store Management</div>
     <div id="login-err"></div>
     <div id="login-msg"></div>
-
-    <!-- STEP1: メールアドレス入力 -->
     <div id="login-step1">
       <div class="login-field">
         <div class="login-label">メールアドレス</div>
@@ -288,8 +314,6 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
       </div>
       <button class="login-btn-primary" id="login-send-btn">認証メールを送信</button>
     </div>
-
-    <!-- STEP2: メール送信後 -->
     <div id="login-step2">
       <div class="login-step-hint">入力したメールアドレスに認証リンクを送信しました。<br>メールに記載のリンクをクリックしてログインしてください。</div>
       <button id="btn-back-login">メールアドレスを変更する</button>
@@ -325,6 +349,7 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
   <button class="nav-tab active" data-page="admin">ADMIN</button>
   <button class="nav-tab" data-page="list">LIST</button>
   <button class="nav-tab" data-page="duty">DUTY</button>
+  <button class="nav-tab" data-page="manage" id="manage-tab" style="display:none">管理者</button>
 </div>
 
 <!-- ADMIN / LIST -->
@@ -349,6 +374,33 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
   <div id="duty-grid"></div>
 </div>
 
+<!-- 管理者ページ -->
+<div id="manage-page">
+  <div id="manage-page-hdr">
+    <span id="manage-page-title">管理者パネル</span>
+    <span id="manage-admin-badge">ADMIN ONLY</span>
+  </div>
+
+  <div class="manage-section">
+    <div class="manage-section-title">許可メールアドレス管理</div>
+    <div id="manage-email-list"><div class="manage-empty">読み込み中...</div></div>
+    <div class="manage-add-row">
+      <input id="manage-new-email" class="manage-add-inp" type="email" placeholder="追加するメールアドレス">
+      <button class="manage-add-btn" id="manage-add-btn">追加</button>
+    </div>
+  </div>
+
+  <div class="manage-section">
+    <div class="manage-section-title">Firebase通信量 — 対策状況</div>
+    <div class="manage-info-row"><span class="manage-info-ok">✓</span>タイマーはローカル計算のみ（毎秒の通信なし）</div>
+    <div class="manage-info-row"><span class="manage-info-ok">✓</span>変更時のみ保存（1秒デバウンス＋差分チェック）</div>
+    <div class="manage-info-row"><span class="manage-info-ok">✓</span>バージョン管理で自端末の折り返し通知をスキップ</div>
+    <div class="manage-info-row"><span class="manage-info-ok">✓</span>onSnapshotはデータ変更時のみ読み取り発生</div>
+    <div class="manage-info-row"><span class="manage-info-ok">✓</span>Sparkプラン無料枠（読取5万/書込2万/日）で十分な設計</div>
+    <div class="manage-info-row"><span class="manage-info-warn">△</span>利用店舗が増えたら有料プラン（Blaze）を検討</div>
+  </div>
+</div>
+
 <div id="drag-ghost"></div>
 
 <!-- 指名モーダル -->
@@ -362,7 +414,7 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
   </div>
 </div>
 
-<!-- 入店モーダル（予約入店削除 / 今すぐ + 人数のみ） -->
+<!-- 入店モーダル -->
 <div class="mo" id="ci-mo">
   <div class="mb" style="width:min(90vw,340px);">
     <div class="mtitle" id="ci-title"></div>
@@ -428,12 +480,9 @@ body.list-mode .list-et-col.empty{color:var(--muted);}
 </div>
 
 <script type="module">
-// ══════════════════════════════════════════════════════════════
-//  Firebase 設定
-// ══════════════════════════════════════════════════════════════
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
   getAuth, isSignInWithEmailLink, sendSignInLinkToEmail,
@@ -451,13 +500,8 @@ const firebaseConfig = {
   measurementId:     "G-MWX72Y0FCT"
 };
 
-// ══════════════════════════════════════════════════════════════
-//  許可メールアドレス一覧 ← ここに使用するメールアドレスを追加
-// ══════════════════════════════════════════════════════════════
-const ALLOWED_EMAILS = [
-  "example1@gmail.com",
-  "example2@gmail.com",
-];
+// 管理者メールアドレス（固定）
+const ADMIN_EMAIL = 'fuihorei@gmail.com';
 
 let fbApp, db, auth;
 try {
@@ -466,10 +510,9 @@ try {
   auth  = getAuth(fbApp);
 } catch(e) { console.error('Firebase init error:', e); }
 
-// ── 定数 ────────────────────────────────────────────────────
+// ── 定数 ──────────────────────────────────────────────────────
 const TC=28, INIT=3600, WARN=600, AEXT=4200, DN=24, PMAX=10;
 
-// casts: { name, duty }[]
 let casts = [
   "さくら","ひな","れい","みゆ","なな","あおい","ゆき","りん",
   "まい","こと","るな","すず","みお","はな","ちか","のあ",
@@ -485,15 +528,21 @@ const T = Array.from({length:TC}, (_,i) => ({
 let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
 let unsubSnap=null, localVer=0, remoteVer=0, lastHash='';
 
-// ══════════════════════════════════════════════════════════════
-//  同期設計
-//  ・onSnapshot でリアルタイム受信（変更時のみ read 消費）
-//  ・バージョン番号で自端末折り返し通知をスキップ
-//  ・受信時は全フィールド上書き（リセット・停止も必ず反映）
-//  ・デバウンス1秒 + 差分チェックで write 最小化
-//  ・タイマーはローカル計算のみ（毎秒 save なし）
-// ══════════════════════════════════════════════════════════════
+// ── 許可確認（Firestoreベース） ────────────────────────────────
+// 管理者は常に許可、それ以外はFirestore allowedUsersコレクションで確認
+async function isAllowed(email) {
+  const e = (email || '').toLowerCase().trim();
+  if (e === ADMIN_EMAIL) return true;
+  try {
+    const snap = await getDoc(doc(db, 'allowedUsers', e));
+    return snap.exists();
+  } catch(err) {
+    console.error('isAllowed error:', err);
+    return false;
+  }
+}
 
+// ── 同期 ──────────────────────────────────────────────────────
 function setSyncState(s) {
   const el = document.getElementById('sync-ind');
   el.className = s;
@@ -580,20 +629,12 @@ function startRealtimeSync(uid) {
   }, err => { console.error('Sync:',err); setSyncState('err'); });
 }
 
-// ══════════════════════════════════════════════════════════════
-//  Firebase Auth - Email Link（メール認証リンク）
-//  1. メールアドレス入力 → sendSignInLinkToEmail → メール送信
-//  2. ユーザーがメール内リンクをクリック → 同じURLに戻る
-//  3. isSignInWithEmailLink で検知 → signInWithEmailLink
-//  4. onAuthStateChanged でログイン状態を監視
-// ══════════════════════════════════════════════════════════════
-
+// ── Firebase Auth ──────────────────────────────────────────────
 const actionCodeSettings = {
   url: 'https://mrs2-48ee4.web.app',
   handleCodeInApp: true,
 };
 
-// ─ UI helpers ────────────────────────────────────────────────
 function showLoginErr(msg) {
   const e = document.getElementById('login-err');
   e.textContent = msg; e.style.display = 'block';
@@ -621,6 +662,7 @@ function showLoginScreen() {
   const s = document.getElementById('login-screen');
   s.style.display = 'flex'; s.classList.remove('hidden');
   document.getElementById('user-email').textContent = '';
+  document.getElementById('manage-tab').style.display = 'none';
   showStep1();
 }
 function hideLoginScreen() {
@@ -629,7 +671,6 @@ function hideLoginScreen() {
   setTimeout(() => { s.style.display = 'none'; }, 320);
 }
 
-// ─ メール送信 ────────────────────────────────────────────────
 document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') trySendLink(); });
 document.getElementById('login-send-btn').addEventListener('click', trySendLink);
 
@@ -637,16 +678,18 @@ async function trySendLink() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   if (!email) { showLoginErr('メールアドレスを入力してください'); return; }
 
-  // 許可リスト照合
-  if (!ALLOWED_EMAILS.map(e=>e.toLowerCase()).includes(email)) {
+  const btn = document.getElementById('login-send-btn');
+  btn.disabled = true; btn.textContent = '確認中...';
+  clearLoginNotice();
+
+  const allowed = await isAllowed(email);
+  if (!allowed) {
     showLoginErr('このメールアドレスは登録されていません');
+    btn.disabled = false; btn.textContent = '認証メールを送信';
     return;
   }
 
-  const btn = document.getElementById('login-send-btn');
-  btn.disabled = true; btn.textContent = '送信中...';
-  clearLoginNotice();
-
+  btn.textContent = '送信中...';
   try {
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
     localStorage.setItem('emailForSignIn', email);
@@ -665,19 +708,16 @@ document.getElementById('btn-back-login').addEventListener('click', () => {
   localStorage.removeItem('emailForSignIn');
 });
 
-// ─ メールリンクからの復帰処理 ────────────────────────────────
 async function handleEmailLinkSignIn() {
   if (!isSignInWithEmailLink(auth, window.location.href)) return false;
   let email = localStorage.getItem('emailForSignIn');
   if (!email) {
-    // 別デバイスでリンクを開いた場合
     email = window.prompt('確認のためメールアドレスを入力してください');
     if (!email) return false;
   }
   try {
     await signInWithEmailLink(auth, email, window.location.href);
     localStorage.removeItem('emailForSignIn');
-    // URLからトークンを除去（履歴をきれいに）
     window.history.replaceState({}, document.title, window.location.pathname);
     return true;
   } catch(e) {
@@ -687,28 +727,29 @@ async function handleEmailLinkSignIn() {
   }
 }
 
-// ─ 認証状態の監視 ────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
   if (!user) {
-    // 未ログイン
     currentUser = null;
     if (unsubSnap) { unsubSnap(); unsubSnap = null; }
     showLoginScreen();
     return;
   }
 
-  // 許可リスト照合（二重チェック）
-  if (!ALLOWED_EMAILS.map(e=>e.toLowerCase()).includes((user.email||'').toLowerCase())) {
+  const allowed = await isAllowed(user.email);
+  if (!allowed) {
     await signOut(auth);
     showLoginErr('このアカウントは使用できません');
     return;
   }
 
-  // ログイン成功
   currentUser = user;
   document.getElementById('user-email').textContent = user.email;
 
-  // 初回データ取得
+  // 管理者タブは管理者のみ表示
+  if (user.email.toLowerCase() === ADMIN_EMAIL) {
+    document.getElementById('manage-tab').style.display = 'block';
+  }
+
   await new Promise(resolve => {
     const unsub = onSnapshot(doc(db,'stores',user.uid), snap => {
       unsub();
@@ -722,7 +763,6 @@ onAuthStateChanged(auth, async user => {
   hideLoginScreen();
 });
 
-// ─ ログアウト ────────────────────────────────────────────────
 document.getElementById('btn-logout').addEventListener('click', async () => {
   if (!confirm('ログアウトしますか？')) return;
   if (unsubSnap) { unsubSnap(); unsubSnap = null; }
@@ -731,10 +771,66 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   await signOut(auth);
 });
 
-// ─ ページ読み込み時にメールリンク処理 ─────────────────────────
 handleEmailLinkSignIn();
 
-// ── utils ─────────────────────────────────────────────────────
+// ── 管理者ページ ───────────────────────────────────────────────
+async function buildManagePage() {
+  const list = document.getElementById('manage-email-list');
+  list.innerHTML = '<div class="manage-empty">読み込み中...</div>';
+  try {
+    const snap = await getDocs(collection(db, 'allowedUsers'));
+    list.innerHTML = '';
+    if (snap.empty) {
+      list.innerHTML = '<div class="manage-empty">登録されたメールアドレスはありません</div>';
+    } else {
+      snap.forEach(d => {
+        const row = document.createElement('div');
+        row.className = 'manage-email-row';
+        const span = document.createElement('span');
+        span.className = 'manage-email-text';
+        span.textContent = d.id;
+        const btn = document.createElement('button');
+        btn.className = 'manage-del-btn';
+        btn.textContent = '削除';
+        btn.addEventListener('click', async () => {
+          if (!confirm(d.id + ' を削除しますか？')) return;
+          try {
+            await deleteDoc(doc(db, 'allowedUsers', d.id));
+            buildManagePage();
+          } catch(e) { alert('削除エラー: ' + e.message); }
+        });
+        row.appendChild(span);
+        row.appendChild(btn);
+        list.appendChild(row);
+      });
+    }
+  } catch(e) {
+    list.innerHTML = '<div class="manage-empty" style="color:#dc2626">読み込みエラー: ' + e.message + '</div>';
+  }
+}
+
+document.getElementById('manage-add-btn').addEventListener('click', async () => {
+  const input = document.getElementById('manage-new-email');
+  const email = input.value.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    input.style.borderColor = '#dc2626';
+    setTimeout(() => input.style.borderColor = '', 800);
+    return;
+  }
+  try {
+    await setDoc(doc(db, 'allowedUsers', email), {
+      email, addedAt: serverTimestamp(), addedBy: currentUser.email,
+    });
+    input.value = '';
+    buildManagePage();
+  } catch(e) { alert('追加エラー: ' + e.message); }
+});
+
+document.getElementById('manage-new-email').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('manage-add-btn').click();
+});
+
+// ── utils ──────────────────────────────────────────────────────
 const fmt = s => s<=0?'00:00':String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
 const nowStr = () => { const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
 const ci = n => { let h=0; for(let i=0;i<n.length;i++) h=(h*31+n.charCodeAt(i))&0xffff; return h%DN; };
@@ -748,7 +844,25 @@ function applyDk(el, name, dupes) {
   if(name && dupes.has(name)) el.classList.add('dk'+ci(name));
 }
 
-// ── TOUCH D&D ────────────────────────────────────────────────
+// ── LIST AUTO-FIT ─────────────────────────────────────────────
+// デバイスサイズに関わらず全卓をスクロールなしで表示
+function fitListMode() {
+  if (!document.body.classList.contains('list-mode')) return;
+  const main = document.getElementById('main');
+  const n = T.length;
+  if (!n || !main.offsetHeight) return;
+  const avail = main.offsetHeight - 4;
+  const rowH = Math.max(16, Math.floor(avail / n));
+  const scale = Math.min(1, rowH / 36);
+  document.documentElement.style.setProperty('--list-row-h', rowH + 'px');
+  document.documentElement.style.setProperty('--list-scale', scale);
+}
+
+window.addEventListener('resize', () => {
+  if (document.body.classList.contains('list-mode')) fitListMode();
+});
+
+// ── TOUCH D&D ─────────────────────────────────────────────────
 let dnd={active:false,name:'',srcEl:null,overEl:null};
 const ghost=document.getElementById('drag-ghost');
 function tStart(e,name,srcEl) {
@@ -778,7 +892,7 @@ document.addEventListener('touchmove',tMove,{passive:false});
 document.addEventListener('touchend',tEnd,{passive:false});
 document.addEventListener('touchcancel',tEnd,{passive:false});
 
-// ── BUILD CASTS（出勤中のみ表示） ─────────────────────────────
+// ── BUILD CASTS ───────────────────────────────────────────────
 function buildCasts() {
   const l=document.getElementById('cast-list'); l.innerHTML='';
   const onDuty = casts.filter(c=>c.duty);
@@ -795,7 +909,7 @@ function buildCasts() {
   });
 }
 
-// ── DUTY PAGE ────────────────────────────────────────────────
+// ── DUTY PAGE ─────────────────────────────────────────────────
 function buildDutyPage() {
   const g=document.getElementById('duty-grid'); g.innerHTML='';
   const duty=casts.filter(c=>c.duty).length;
@@ -872,7 +986,7 @@ function buildGrid() {
   });
 }
 
-// ── ACTIONS ──────────────────────────────────────────────────
+// ── ACTIONS ───────────────────────────────────────────────────
 function toggleMode(id) {
   const t=T[id-1]; t.mode=t.mode==='time'?'auto':'time'; t.ext=false;
   const b=document.getElementById('mb'+id);
@@ -898,7 +1012,7 @@ function resetT(id) {
 function addN(id,f,n){const a=T[id-1][f];if(!a.includes(n))a.push(n);renderAll();scheduleSave();}
 function remN(id,f,n){T[id-1][f]=T[id-1][f].filter(x=>x!==n);renderAll();scheduleSave();}
 
-// ── MODALS ───────────────────────────────────────────────────
+// ── MODALS ────────────────────────────────────────────────────
 function openTN(id) {
   tnId=id;
   document.getElementById('tn-title').textContent='卓番設定  /  現在: '+T[id-1].label;
@@ -917,7 +1031,6 @@ document.getElementById('tn-cl').addEventListener('click',()=>{document.getEleme
 document.getElementById('tn-mo').addEventListener('click',e=>{if(e.target.id==='tn-mo'){document.getElementById('tn-mo').classList.remove('show');tnId=null;}});
 document.getElementById('tn-input').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('tn-ok').click();});
 
-// 入店モーダル（予約入店削除 - 今すぐ + 人数のみ）
 function buildPax(){
   const r=document.getElementById('pxrow');r.innerHTML='';
   for(let i=1;i<=PMAX;i++){
@@ -955,7 +1068,6 @@ document.getElementById('tclr').addEventListener('click',()=>{
 document.getElementById('ci-cl').addEventListener('click',closeCI);
 document.getElementById('ci-mo').addEventListener('click',e=>{if(e.target.id==='ci-mo')closeCI();});
 
-// 指名モーダル
 function openNM(tid,f){
   mst={tid,f,sel:[...T[tid-1][f]]};
   document.getElementById('nm-title').textContent=(f==='hon'?'本指名':'場内指名')+'  /  '+T[tid-1].label+'番卓';
@@ -972,7 +1084,6 @@ function refreshNM(){
     sd.appendChild(tag);
   });
   const mg=document.getElementById('mgrid');mg.innerHTML='';
-  // 指名モーダルは全キャスト表示、出勤中は緑枠
   casts.forEach(c=>{
     const n=c.name;const isSel=mst.sel.includes(n);
     const b=document.createElement('button');
@@ -990,7 +1101,6 @@ document.getElementById('nm-ok').addEventListener('click',()=>{
 document.getElementById('nm-cl').addEventListener('click',()=>{mst=null;document.getElementById('nm-mo').classList.remove('show');});
 document.getElementById('nm-mo').addEventListener('click',e=>{if(e.target.id==='nm-mo'){mst=null;document.getElementById('nm-mo').classList.remove('show');}});
 
-// キャスト追加
 document.getElementById('btn-addcast').addEventListener('click',()=>{
   document.getElementById('nci').value='';
   document.getElementById('ac-mo').classList.add('show');
@@ -1007,7 +1117,7 @@ function addCast(){
   document.getElementById('ac-mo').classList.remove('show');
 }
 
-// ── RENDER ───────────────────────────────────────────────────
+// ── RENDER ────────────────────────────────────────────────────
 function renderAll(){
   const d=getDupes();
   document.querySelectorAll('.chip').forEach(e=>applyDk(e,e.dataset.name,d));
@@ -1047,7 +1157,7 @@ function renderAll(){
   updateStats();
 }
 
-// ── TIMER LOOP ───────────────────────────────────────────────
+// ── TIMER LOOP ────────────────────────────────────────────────
 setInterval(()=>{
   T.forEach(t=>{
     if(!t.run||!t.sat)return;
@@ -1064,11 +1174,11 @@ setInterval(()=>{
   renderAll();
 },1000);
 
-// ── CLOCK ────────────────────────────────────────────────────
+// ── CLOCK ─────────────────────────────────────────────────────
 const tick=()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'});};
 setInterval(tick,1000);tick();
 
-// ── SETTINGS ─────────────────────────────────────────────────
+// ── SETTINGS ──────────────────────────────────────────────────
 let spTcVal=TC;
 function openSettings(){
   buildSpTableGrid();spTcVal=T.length;
@@ -1114,30 +1224,41 @@ document.getElementById('btn-settings').addEventListener('click',openSettings);
 document.getElementById('sp-close').addEventListener('click',closeSettings);
 document.getElementById('settings-overlay').addEventListener('click',closeSettings);
 
-// ── NAV TABS ─────────────────────────────────────────────────
+// ── NAV TABS ──────────────────────────────────────────────────
 const bodyEl=document.getElementById('body');
 const dutyPageEl=document.getElementById('duty-page');
+const managePageEl=document.getElementById('manage-page');
+
 document.querySelectorAll('.nav-tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
     document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
     tab.classList.add('active');
     const page=tab.dataset.page;
+
+    // 全ページ非表示
+    bodyEl.style.display='none';
+    dutyPageEl.classList.remove('active');
+    managePageEl.classList.remove('active');
+    document.body.classList.remove('list-mode');
+
     if(page==='duty'){
-      bodyEl.style.display='none';
       dutyPageEl.classList.add('active');
       buildDutyPage();
-    } else {
-      dutyPageEl.classList.remove('active');
+    } else if(page==='manage'){
+      managePageEl.classList.add('active');
+      buildManagePage();
+    } else if(page==='list'){
       bodyEl.style.display='flex';
-      if(page==='list'){
-        document.body.classList.add('list-mode');
-        document.querySelectorAll('.chip').forEach(c=>c.draggable=false);
-        document.querySelectorAll('.card').forEach(c=>c.style.pointerEvents='none');
-      } else {
-        document.body.classList.remove('list-mode');
-        document.querySelectorAll('.chip').forEach(c=>c.draggable=true);
-        document.querySelectorAll('.card').forEach(c=>c.style.pointerEvents='');
-      }
+      document.body.classList.add('list-mode');
+      document.querySelectorAll('.chip').forEach(c=>c.draggable=false);
+      document.querySelectorAll('.card').forEach(c=>c.style.pointerEvents='none');
+      // 少し遅延してレイアウト確定後にフィット計算
+      requestAnimationFrame(()=>requestAnimationFrame(fitListMode));
+    } else {
+      // admin (default)
+      bodyEl.style.display='flex';
+      document.querySelectorAll('.chip').forEach(c=>c.draggable=true);
+      document.querySelectorAll('.card').forEach(c=>c.style.pointerEvents='');
     }
   });
 });
