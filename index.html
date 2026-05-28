@@ -484,7 +484,7 @@ import { initializeApp }
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
+  getAuth, GoogleAuthProvider, signInWithPopup,
   signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -638,13 +638,13 @@ function showLoginErr(msg) {
 function clearLoginNotice() {
   document.getElementById('login-err').style.display = 'none';
 }
-function showLoginScreen() {
+function showLoginScreen(msg) {
   const s = document.getElementById('login-screen');
   s.style.display = 'flex'; s.classList.remove('hidden');
   document.getElementById('user-email').textContent = '';
   document.getElementById('manage-tab').style.display = 'none';
-  clearLoginNotice();
   document.getElementById('login-google-btn').disabled = false;
+  if (msg) showLoginErr(msg);
 }
 function hideLoginScreen() {
   const s = document.getElementById('login-screen');
@@ -655,24 +655,15 @@ function hideLoginScreen() {
 document.getElementById('login-google-btn').addEventListener('click', async () => {
   const btn = document.getElementById('login-google-btn');
   btn.disabled = true;
-  btn.textContent = 'リダイレクト中...';
   clearLoginNotice();
   try {
-    await signInWithRedirect(auth, googleProvider);
+    await signInWithPopup(auth, googleProvider);
   } catch(e) {
     console.error(e);
-    showLoginErr('ログインに失敗しました: ' + e.message);
+    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      showLoginErr('ログインに失敗しました: ' + e.message);
+    }
     btn.disabled = false;
-    btn.textContent = 'Googleでログイン';
-  }
-});
-
-getRedirectResult(auth).then(result => {
-  // リダイレクト後の処理はonAuthStateChangedに任せる
-}).catch(e => {
-  console.error(e);
-  if (e.code && e.code !== 'auth/no-current-user') {
-    showLoginErr('ログインに失敗しました: ' + e.message);
   }
 });
 
@@ -687,7 +678,7 @@ onAuthStateChanged(auth, async user => {
   const allowed = await isAllowed(user.email);
   if (!allowed) {
     await signOut(auth);
-    showLoginErr('このアカウントは使用できません');
+    showLoginScreen('このアカウントは使用できません: ' + user.email);
     return;
   }
 
