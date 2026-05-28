@@ -287,6 +287,8 @@ body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-sca
 .login-step-hint{font-size:.58rem;color:#555;text-align:center;line-height:1.6;}
 #btn-back-login{background:transparent;border:none;color:#444;cursor:pointer;font-size:.56rem;font-family:var(--mono);text-decoration:underline;align-self:center;}
 #btn-back-login:hover{color:#888;}
+#login-version{position:absolute;bottom:12px;right:16px;font-family:var(--mono);font-size:.46rem;color:#2a2a2a;letter-spacing:.08em;pointer-events:none;}
+#login-err{word-break:break-all;}
 
 @media(max-width:480px){#cp{width:56px;}.chip{font-size:.56rem;padding:3px 2px;}.sa{width:34px;}.a-num{font-size:.76rem;}.sb{width:42px;}.cbtn{font-size:.42rem;padding:2px 3px;}.sc{width:68px;}.tval{font-size:.82rem;}.tbtns .tbtn{font-size:.52rem;padding:1px 4px;}#grid{grid-template-columns:1fr;}#user-email{display:none;}#clock{font-size:.6rem;}#duty-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));}}
 @media(min-width:481px)and(max-width:767px){#grid{grid-template-columns:1fr;}#cp{width:64px;}}
@@ -305,6 +307,7 @@ body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-sca
 
 <!-- LOGIN -->
 <div id="login-screen">
+  <div id="login-version">v1.1</div>
   <div id="login-box">
     <div id="login-logo">LISTSYSTEM</div>
     <div id="login-sub">Store Management</div>
