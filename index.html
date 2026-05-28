@@ -155,6 +155,9 @@ body.list-mode .list-et-col{font-size:calc(0.58rem * var(--list-scale,1));width:
 .list-et-col{display:none;flex-shrink:0;width:44px;text-align:center;font-family:var(--mono);font-size:.58rem;color:var(--text);padding:0 3px;border-right:1px solid var(--border2);}
 body.list-mode .list-et-col{display:flex;align-items:center;justify-content:center;}
 body.list-mode .list-et-col.empty{color:var(--muted);}
+body.list-mode .sd,body.list-mode .se{flex-direction:row;align-items:center;}
+body.list-mode .sd::before{content:"本";font-size:calc(0.40rem * var(--list-scale,1));color:#1d4ed8;font-weight:900;background:#dbeafe;border:1px solid #93c5fd;border-radius:2px;padding:0 2px;line-height:1.5;flex-shrink:0;margin-right:2px;}
+body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-scale,1));color:#d97706;font-weight:900;background:#fef3c7;border:1px solid #fcd34d;border-radius:2px;padding:0 2px;line-height:1.5;flex-shrink:0;margin-right:2px;}
 
 /* DUTY PAGE */
 #duty-page{flex:1;overflow-y:auto;padding:10px;display:none;flex-direction:column;gap:10px;}
@@ -1089,7 +1092,7 @@ function refreshNM(){
     const b=document.createElement('button');
     b.className='mc'+(isSel?' sel':'')+(c.duty?' on-duty':'');
     b.textContent=n;b.dataset.name=n;
-    if(!isSel)applyDk(b,n,d);
+    if(!isSel && !c.duty)applyDk(b,n,d);
     b.addEventListener('click',()=>{mst.sel=mst.sel.includes(n)?mst.sel.filter(x=>x!==n):[...mst.sel,n];refreshNM();});
     mg.appendChild(b);
   });
@@ -1120,7 +1123,6 @@ function addCast(){
 // ── RENDER ────────────────────────────────────────────────────
 function renderAll(){
   const d=getDupes();
-  document.querySelectorAll('.chip').forEach(e=>applyDk(e,e.dataset.name,d));
   T.forEach(t=>{
     const card=document.getElementById('c'+t.id);if(!card)return;
     const isW=t.mode==='time'&&t.run&&t.sec<=WARN&&t.sec>0;
