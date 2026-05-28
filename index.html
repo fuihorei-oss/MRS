@@ -308,15 +308,16 @@ body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-sca
 
 <!-- LOGIN -->
 <div id="login-screen">
-  <div id="login-version">v1.1</div>
+  <div id="login-version">v1.2</div>
   <div id="login-box">
     <div id="login-logo">LISTSYSTEM</div>
     <div id="login-sub">Store Management</div>
     <div id="login-err"></div>
-    <button class="login-btn-google" id="login-google-btn">
-      <svg viewBox="0 0 24 24" width="18" height="18" style="flex-shrink:0"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Googleでログイン
-    </button>
+    <div class="login-field">
+      <div class="login-label">パスワード</div>
+      <input id="login-pw" class="login-inp" type="password" placeholder="パスワードを入力" autocomplete="current-password">
+    </div>
+    <button class="login-btn-primary" id="login-pw-btn">ログイン</button>
   </div>
 </div>
 
@@ -484,8 +485,7 @@ import { initializeApp }
 import { getFirestore, doc, setDoc, updateDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup,
-  signOut, onAuthStateChanged
+  getAuth, signInAnonymously, signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -499,8 +499,31 @@ const firebaseConfig = {
   measurementId:     "G-MWX72Y0FCT"
 };
 
-// 管理者メールアドレス（固定）
-const ADMIN_EMAIL = 'fuihorei@gmail.com';
+// パスワード管理（SHA-256ハッシュ）
+// パスワードを変更する場合：PowerShellで以下を実行してハッシュを取得
+// [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes("新パスワード"))).Replace("-","").ToLower()
+const PASSWORD_HASH = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0'; // 初期値: 0000
+const SESSION_KEY = 'mrs_sess';
+const SESSION_HOURS = 12;
+const RATE_KEY = 'mrs_rate';
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function setSession() { localStorage.setItem(SESSION_KEY, String(Date.now() + SESSION_HOURS * 3600000)); }
+function hasSession() { return Date.now() < parseInt(localStorage.getItem(SESSION_KEY) || '0'); }
+function clearSession() { localStorage.removeItem(SESSION_KEY); }
+function getRateData() { try { return JSON.parse(localStorage.getItem(RATE_KEY) || '{}'); } catch { return {}; } }
+function checkLocked() { const r=getRateData(); return r.lockUntil&&Date.now()<r.lockUntil ? Math.ceil((r.lockUntil-Date.now())/60000) : 0; }
+function recordFail() {
+  const r=getRateData(); if(r.lockUntil&&Date.now()<r.lockUntil) return;
+  const a=(r.attempts||0)+1;
+  localStorage.setItem(RATE_KEY, JSON.stringify(a>=MAX_ATTEMPTS ? {lockUntil:Date.now()+LOCKOUT_MS,attempts:0} : {attempts:a}));
+}
+function clearRate() { localStorage.removeItem(RATE_KEY); }
 
 let fbApp, db, auth;
 try {
@@ -529,19 +552,6 @@ let unsubSnap=null, localVer=0, remoteVer=0;
 let lastTableHashes={}, lastCastsHash='', needsFullSave=true;
 const myClientId = Math.random().toString(36).slice(2, 10);
 
-// ── 許可確認（Firestoreベース） ────────────────────────────────
-// 管理者は常に許可、それ以外はFirestore allowedUsersコレクションで確認
-async function isAllowed(email) {
-  const e = (email || '').toLowerCase().trim();
-  if (e === ADMIN_EMAIL) return true;
-  try {
-    const snap = await getDoc(doc(db, 'allowedUsers', e));
-    return snap.exists();
-  } catch(err) {
-    console.error('isAllowed error:', err);
-    return false;
-  }
-}
 
 // ── 同期 ──────────────────────────────────────────────────────
 function setSyncState(s) {
@@ -586,17 +596,17 @@ async function saveToFirestore() {
   try {
     if(needsFullSave){
       const m={};T.forEach(t=>{m['t'+t.id]=serializeTable(t);});
-      await setDoc(doc(db,'stores',currentUser.uid),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
+      await setDoc(doc(db,'stores','default'),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
       needsFullSave=false;
     } else {
-      await updateDoc(doc(db,'stores',currentUser.uid),changes);
+      await updateDoc(doc(db,'stores','default'),changes);
     }
     remoteVer=myVer;setSyncState('ok');
   } catch(e) {
     if(e.code==='not-found'){
       const m={};T.forEach(t=>{m['t'+t.id]=serializeTable(t);});
       try{
-        await setDoc(doc(db,'stores',currentUser.uid),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
+        await setDoc(doc(db,'stores','default'),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
         needsFullSave=false;remoteVer=myVer;setSyncState('ok');
       }catch(e2){console.error('Save error:',e2);setSyncState('err');}
     } else {
@@ -652,9 +662,7 @@ function startRealtimeSync(uid) {
   }, err => { console.error('Sync:',err); setSyncState('err'); });
 }
 
-// ── Firebase Auth ──────────────────────────────────────────────
-const googleProvider = new GoogleAuthProvider();
-
+// ── Auth UI ────────────────────────────────────────────────────
 function showLoginErr(msg) {
   const e = document.getElementById('login-err');
   e.textContent = msg; e.style.display = 'block';
@@ -666,8 +674,8 @@ function showLoginScreen(msg) {
   const s = document.getElementById('login-screen');
   s.style.display = 'flex'; s.classList.remove('hidden');
   document.getElementById('user-email').textContent = '';
-  document.getElementById('manage-tab').style.display = 'none';
-  document.getElementById('login-google-btn').disabled = false;
+  const btn = document.getElementById('login-pw-btn');
+  if (btn) btn.disabled = false;
   if (msg) showLoginErr(msg);
 }
 function hideLoginScreen() {
@@ -676,20 +684,34 @@ function hideLoginScreen() {
   setTimeout(() => { s.style.display = 'none'; }, 320);
 }
 
-document.getElementById('login-google-btn').addEventListener('click', async () => {
-  const btn = document.getElementById('login-google-btn');
-  btn.disabled = true;
-  clearLoginNotice();
+async function tryLogin() {
+  const locked = checkLocked();
+  if (locked) { showLoginErr(locked + '分後に再試行できます'); return; }
+  const pw = document.getElementById('login-pw').value;
+  if (!pw) { showLoginErr('パスワードを入力してください'); return; }
+  const btn = document.getElementById('login-pw-btn');
+  btn.disabled = true; clearLoginNotice();
+  const hash = await sha256(pw);
+  if (hash !== PASSWORD_HASH) {
+    recordFail();
+    const lk = checkLocked();
+    const r = getRateData();
+    showLoginErr(lk ? 'パスワードが違います。' + lk + '分間ロックされました'
+                    : 'パスワードが違います（残り' + (MAX_ATTEMPTS-(r.attempts||0)) + '回）');
+    btn.disabled = false; return;
+  }
+  clearRate();
   try {
-    await signInWithPopup(auth, googleProvider);
+    setSession();
+    await signInAnonymously(auth);
   } catch(e) {
-    console.error(e);
-    if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
-      showLoginErr('ログインに失敗しました: ' + e.message);
-    }
+    clearSession();
+    showLoginErr('ログインに失敗しました: ' + e.message);
     btn.disabled = false;
   }
-});
+}
+document.getElementById('login-pw-btn').addEventListener('click', tryLogin);
+document.getElementById('login-pw').addEventListener('keydown', e => { if(e.key==='Enter') tryLogin(); });
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -699,23 +721,16 @@ onAuthStateChanged(auth, async user => {
     return;
   }
 
-  const allowed = await isAllowed(user.email);
-  if (!allowed) {
+  if (!hasSession()) {
     await signOut(auth);
-    showLoginScreen('このアカウントは使用できません: ' + user.email);
+    clearSession();
     return;
   }
 
   currentUser = user;
-  document.getElementById('user-email').textContent = user.email;
-
-  // 管理者タブは管理者のみ表示
-  if (user.email.toLowerCase() === ADMIN_EMAIL) {
-    document.getElementById('manage-tab').style.display = 'block';
-  }
 
   await new Promise(resolve => {
-    const unsub = onSnapshot(doc(db,'stores',user.uid), snap => {
+    const unsub = onSnapshot(doc(db,'stores','default'), snap => {
       unsub();
       if (snap.exists()) applyRemoteData(snap.data());
       buildGrid(); buildCasts(); buildDutyPage(); renderAll(); updateStats();
@@ -723,15 +738,16 @@ onAuthStateChanged(auth, async user => {
     }, err => { console.error(err); buildGrid(); buildCasts(); buildDutyPage(); renderAll(); resolve(); });
   });
 
-  startRealtimeSync(user.uid);
+  startRealtimeSync('default');
   hideLoginScreen();
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
   if (!confirm('ログアウトしますか？')) return;
+  clearSession();
   if (unsubSnap) { unsubSnap(); unsubSnap = null; }
   clearTimeout(saveTimer);
-  localVer = 0; remoteVer = 0; lastHash = '';
+  localVer = 0; remoteVer = 0;
   await signOut(auth);
 });
 
