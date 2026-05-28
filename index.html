@@ -526,6 +526,7 @@ const T = Array.from({length:TC}, (_,i) => ({
 
 let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
 let unsubSnap=null, localVer=0, remoteVer=0, lastHash='';
+const myClientId = Math.random().toString(36).slice(2, 10);
 
 // ── 許可確認（Firestoreベース） ────────────────────────────────
 // 管理者は常に許可、それ以外はFirestore allowedUsersコレクションで確認
@@ -580,7 +581,7 @@ async function saveToFirestore() {
   setSyncState('busy');
   try {
     await setDoc(doc(db,'stores',currentUser.uid), {
-      tables: getSerializableT(), casts, ver: myVer, updatedAt: serverTimestamp(),
+      tables: getSerializableT(), casts, ver: myVer, clientId: myClientId, updatedAt: serverTimestamp(),
     });
     lastHash = hash; remoteVer = myVer; setSyncState('ok');
   } catch(e) { console.error('Save error:',e); setSyncState('err'); }
@@ -620,7 +621,7 @@ function startRealtimeSync(uid) {
   unsubSnap = onSnapshot(doc(db,'stores',uid), snap => {
     if (!snap.exists()) { setSyncState('ok'); return; }
     const data = snap.data();
-    if (data.ver !== undefined && data.ver === remoteVer) { setSyncState('ok'); return; }
+    if (data.clientId === myClientId && data.ver === remoteVer) { setSyncState('ok'); return; }
     remoteVer = data.ver || 0;
     applyRemoteData(data);
     lastHash = stateHash();
