@@ -481,7 +481,7 @@ body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-sca
 <script type="module">
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
+import { getFirestore, doc, setDoc, updateDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
   getAuth, GoogleAuthProvider, signInWithPopup,
@@ -525,7 +525,8 @@ const T = Array.from({length:TC}, (_,i) => ({
 }));
 
 let mst=null, cid=null, cpax=0, tnId=null, currentUser=null, saveTimer=null;
-let unsubSnap=null, localVer=0, remoteVer=0, lastHash='';
+let unsubSnap=null, localVer=0, remoteVer=0;
+let lastTableHashes={}, lastCastsHash='', needsFullSave=true;
 const myClientId = Math.random().toString(36).slice(2, 10);
 
 // ── 許可確認（Firestoreベース） ────────────────────────────────
@@ -556,35 +557,53 @@ function updateStats() {
   document.getElementById('st-cast').textContent = casts.filter(c=>c.duty).length;
 }
 
-function getSerializableT() {
-  return T.map(t => ({
+function serializeTable(t) {
+  return {
     id:t.id, label:t.label, mode:t.mode, hon:[...t.hon], ban:[...t.ban],
     et:t.et, pax:t.pax, run:t.run,
-    sav: t.run ? Math.max(0, t.sav-Math.floor((Date.now()-t.sat)/1000)) : t.sav,
-    sat: t.run ? Date.now() : null, ext:t.ext,
-  }));
+    sav:t.run?Math.max(0,t.sav-Math.floor((Date.now()-t.sat)/1000)):t.sav,
+    sat:t.run?Date.now():null, ext:t.ext,
+  };
 }
-
-function stateHash() {
-  return JSON.stringify(T.map(t=>({
-    id:t.id,label:t.label,mode:t.mode,hon:t.hon,ban:t.ban,
-    et:t.et,pax:t.pax,run:t.run,sav:t.sav,sat:t.sat,ext:t.ext,
-  }))) + JSON.stringify(casts);
+function tableStateKey(t) {
+  return JSON.stringify({label:t.label,mode:t.mode,hon:t.hon,ban:t.ban,et:t.et,pax:t.pax,run:t.run,sav:t.sav,sat:t.sat,ext:t.ext});
 }
 
 async function saveToFirestore() {
   if (!currentUser || !db) return;
-  const hash = stateHash();
-  if (hash === lastHash) return;
-  localVer++;
-  const myVer = localVer;
+  const changes={};
+  let anyChange=false;
+  T.forEach(t=>{
+    const k=tableStateKey(t);
+    if(k!==lastTableHashes['t'+t.id]){changes['tables.t'+t.id]=serializeTable(t);lastTableHashes['t'+t.id]=k;anyChange=true;}
+  });
+  const ch=JSON.stringify(casts);
+  if(ch!==lastCastsHash){changes.casts=casts;lastCastsHash=ch;anyChange=true;}
+  if(!anyChange)return;
+  localVer++;const myVer=localVer;
+  changes.ver=myVer;changes.clientId=myClientId;changes.updatedAt=serverTimestamp();
   setSyncState('busy');
   try {
-    await setDoc(doc(db,'stores',currentUser.uid), {
-      tables: getSerializableT(), casts, ver: myVer, clientId: myClientId, updatedAt: serverTimestamp(),
-    });
-    lastHash = hash; remoteVer = myVer; setSyncState('ok');
-  } catch(e) { console.error('Save error:',e); setSyncState('err'); }
+    if(needsFullSave){
+      const m={};T.forEach(t=>{m['t'+t.id]=serializeTable(t);});
+      await setDoc(doc(db,'stores',currentUser.uid),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
+      needsFullSave=false;
+    } else {
+      await updateDoc(doc(db,'stores',currentUser.uid),changes);
+    }
+    remoteVer=myVer;setSyncState('ok');
+  } catch(e) {
+    if(e.code==='not-found'){
+      const m={};T.forEach(t=>{m['t'+t.id]=serializeTable(t);});
+      try{
+        await setDoc(doc(db,'stores',currentUser.uid),{tables:m,casts,ver:myVer,clientId:myClientId,updatedAt:serverTimestamp()});
+        needsFullSave=false;remoteVer=myVer;setSyncState('ok');
+      }catch(e2){console.error('Save error:',e2);setSyncState('err');}
+    } else {
+      console.error('Save error:',e);setSyncState('err');
+      lastTableHashes={};lastCastsHash='';
+    }
+  }
 }
 
 function scheduleSave() {
@@ -594,21 +613,26 @@ function scheduleSave() {
 
 function applyRemoteData(data) {
   if (data.casts && Array.isArray(data.casts)) {
-    casts = data.casts.map(c => typeof c==='string' ? {name:c,duty:false} : {name:c.name||'',duty:!!c.duty});
+    casts = data.casts.map(c=>typeof c==='string'?{name:c,duty:false}:{name:c.name||'',duty:!!c.duty});
+    lastCastsHash = JSON.stringify(casts);
   }
-  if (data.tables && Array.isArray(data.tables)) {
-    const needRebuild = data.tables.length !== T.length;
+  if (data.tables) {
+    const isArr = Array.isArray(data.tables);
+    if (isArr) needsFullSave = true;
+    const arr = isArr ? data.tables : Object.values(data.tables).sort((a,b)=>(a.id||0)-(b.id||0));
+    const needRebuild = arr.length !== T.length;
     if (needRebuild) T.length = 0;
-    data.tables.forEach((rt,i) => {
-      const satMs = rt.sat ? (rt.sat < 1e12 ? rt.sat*1000 : rt.sat) : null;
-      const elapsed = rt.run && satMs ? Math.floor((Date.now()-satMs)/1000) : 0;
+    arr.forEach((rt,i) => {
+      const satMs = rt.sat?(rt.sat<1e12?rt.sat*1000:rt.sat):null;
+      const elapsed = rt.run&&satMs?Math.floor((Date.now()-satMs)/1000):0;
       const e = {
         id:rt.id, label:rt.label||String(rt.id), mode:rt.mode||'time',
         hon:rt.hon||[], ban:rt.ban||[], et:rt.et||'', pax:rt.pax||0, run:rt.run||false,
-        sec: rt.run ? Math.max(0,(rt.sav||INIT)-elapsed) : (rt.sav||INIT),
+        sec:rt.run?Math.max(0,(rt.sav||INIT)-elapsed):(rt.sav||INIT),
         sav:rt.sav||INIT, sat:rt.run&&satMs?satMs:null, ext:rt.ext||false,
       };
-      if (needRebuild) { T.push(e); } else { Object.assign(T[i],e); }
+      if (needRebuild){T.push(e);}else{Object.assign(T[i],e);}
+      lastTableHashes['t'+e.id] = tableStateKey(e);
     });
     if (needRebuild) buildGrid();
   }
@@ -624,7 +648,6 @@ function startRealtimeSync(uid) {
     if (data.clientId === myClientId && data.ver === remoteVer) { setSyncState('ok'); return; }
     remoteVer = data.ver || 0;
     applyRemoteData(data);
-    lastHash = stateHash();
     setSyncState('ok');
   }, err => { console.error('Sync:',err); setSyncState('err'); });
 }
