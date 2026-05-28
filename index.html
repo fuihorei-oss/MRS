@@ -288,7 +288,7 @@ body.list-mode .se::before{content:"場";font-size:calc(0.40rem * var(--list-sca
 .login-btn-google{background:#fff;border:2px solid #ddd;border-radius:2px;color:#333;cursor:pointer;padding:12px;font-size:.8rem;font-weight:700;font-family:var(--sans);letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;}
 .login-btn-google:hover{background:#f5f5f5;border-color:#bbb;}
 .login-btn-google:disabled{opacity:.5;cursor:default;}
-#login-version{position:absolute;bottom:12px;right:16px;font-family:var(--mono);font-size:.46rem;color:#2a2a2a;letter-spacing:.08em;pointer-events:none;}
+#login-version{position:absolute;bottom:12px;right:16px;font-family:var(--mono);font-size:.46rem;color:#555;letter-spacing:.08em;pointer-events:none;}
 #login-err{word-break:break-all;}
 
 @media(max-width:480px){#cp{width:56px;}.chip{font-size:.56rem;padding:3px 2px;}.sa{width:34px;}.a-num{font-size:.76rem;}.sb{width:42px;}.cbtn{font-size:.42rem;padding:2px 3px;}.sc{width:68px;}.tval{font-size:.82rem;}.tbtns .tbtn{font-size:.52rem;padding:1px 4px;}#grid{grid-template-columns:1fr;}#user-email{display:none;}#clock{font-size:.6rem;}#duty-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));}}
@@ -484,7 +484,7 @@ import { initializeApp }
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, getDocs, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup,
+  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
   signOut, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
@@ -655,15 +655,24 @@ function hideLoginScreen() {
 document.getElementById('login-google-btn').addEventListener('click', async () => {
   const btn = document.getElementById('login-google-btn');
   btn.disabled = true;
+  btn.textContent = 'リダイレクト中...';
   clearLoginNotice();
   try {
-    await signInWithPopup(auth, googleProvider);
+    await signInWithRedirect(auth, googleProvider);
   } catch(e) {
     console.error(e);
-    if (e.code !== 'auth/popup-closed-by-user') {
-      showLoginErr('ログインに失敗しました: ' + e.message);
-    }
+    showLoginErr('ログインに失敗しました: ' + e.message);
     btn.disabled = false;
+    btn.textContent = 'Googleでログイン';
+  }
+});
+
+getRedirectResult(auth).then(result => {
+  // リダイレクト後の処理はonAuthStateChangedに任せる
+}).catch(e => {
+  console.error(e);
+  if (e.code && e.code !== 'auth/no-current-user') {
+    showLoginErr('ログインに失敗しました: ' + e.message);
   }
 });
 
